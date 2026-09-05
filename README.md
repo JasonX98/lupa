@@ -58,4 +58,4 @@ src/lupa/
 
 ## 许可
 
-待白驹过隙拍板（候选：MIT / Apache 2.0）。
+[MIT](LICENSE) © 2026 JasonX98 (liull621)
