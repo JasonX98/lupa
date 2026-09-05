@@ -11,6 +11,7 @@ from pathlib import Path
 
 import typer
 
+from lupa.config import load_config, provider_config
 from lupa.dict.query import dict_stats, query_word, suggest_prefix
 from lupa.notebook import repo as nb
 from lupa import __version__
@@ -183,6 +184,7 @@ def stats() -> None:
 @app.command()
 def review(
     limit: int = typer.Option(20, "--limit", "-n", help="本次最多复习张数"),
+    speak: bool = typer.Option(False, "--speak", "-s", help="每张卡自动朗读（有道 TTS）"),
 ) -> None:
     """交互式复习：逐词答题，固定间隔调度（1/3/7/15/30 天）。"""
     from lupa.notebook.scheduler import EASE_AGAIN, EASE_EASY, EASE_GOOD, EASE_HARD
@@ -196,6 +198,21 @@ def review(
     if not cards:
         typer.secho("今日没有待复习的词。", fg=typer.colors.GREEN)
         raise typer.Exit()
+
+    speaker = None
+    if speak:
+        cfg = load_config(data_home())
+        pcfg = provider_config(cfg)
+        nb_path = data_home() / "notebook.sqlite"
+        nb.ensure_notebook(nb_path)
+        from lupa.media import tts
+
+        def speaker(word: str) -> None:
+            try:
+                r = tts.get_audio(nb_path, word, "us", pcfg["tts_url"])
+                os.startfile(tts.blob_to_tempfile(r.blob))
+            except Exception as e:  # noqa: BLE001 — 发音失败不阻断复习
+                typer.secho(f"  (发音失败: {e})", fg=typer.colors.YELLOW)
 
     typer.echo(f"待复习 {len(cards)} 张卡。评分: 1=忘了 2=Hard 3=Good 4=Easy，s=跳过 q=退出\n")
 
@@ -213,6 +230,8 @@ def review(
             front += f"  /{e.phonetic}/"
         typer.secho(f"[{i}/{len(cards)}] ({state}, 间隔{e.ivl}天)  {front}",
                     fg=typer.colors.CYAN, bold=True)
+        if speaker:
+            speaker(e.word)
         typer.prompt("想起来了就回车", default="", show_default=False)
 
         # 背面：释义
@@ -255,6 +274,98 @@ def review(
         f"{len(nb.due_words(ndb, limit=9999))}",
         fg=typer.colors.CYAN if reviewed else typer.colors.YELLOW,
     )
+
+
+# ---------- 发音 / 音标（Q4：联网优先 + 本地缓存） ----------
+
+
+def _media_paths() -> tuple[Path, dict]:
+    home = data_home()
+    cfg = load_config(home)
+    ndb = home / "notebook.sqlite"
+    nb.ensure_notebook(ndb)
+    return ndb, cfg
+
+
+@app.command()
+def say(
+    word: str = typer.Argument(..., help="要朗读的单词"),
+    accent: str = typer.Option("us", "--accent", "-a", help="口音: us | uk"),
+    provider: str = typer.Option(None, "--provider", "-p", help="服务商（默认取配置）"),
+) -> None:
+    """朗读单词（联网 TTS，结果缓存到本地）。"""
+    import os
+
+    from lupa.media.tts import TtsFetchError, blob_to_tempfile, get_audio
+
+    ndb, cfg = _media_paths()
+    name = provider or cfg["default_provider"]
+    try:
+        pcfg = provider_config(cfg, name)
+        audio = get_audio(ndb, word, accent, pcfg["tts_url"], provider=name)
+    except KeyError as e:
+        typer.secho(str(e), fg=typer.colors.RED)
+        raise typer.Exit(code=1)
+    except TtsFetchError as e:
+        typer.secho(str(e), fg=typer.colors.YELLOW)
+        raise typer.Exit(code=1)
+
+    src = "(缓存)" if audio.from_cache else "(联网)"
+    typer.secho(f"{audio.word} [{audio.accent}] {src} {audio.size_bytes / 1024:.1f} KB",
+                fg=typer.colors.GREEN)
+    path = blob_to_tempfile(audio.blob)
+    os.startfile(path)  # Windows 默认播放器异步播放
+
+
+@app.command()
+def phonetic(
+    word: str = typer.Argument(..., help="要查音标的单词"),
+    provider: str = typer.Option(None, "--provider", "-p", help="服务商（默认取配置）"),
+) -> None:
+    """查美/英音标（ECDICT 音标之外联网补充，结果缓存）。"""
+    from lupa.media.phonetic import PhoneticFetchError, get_phonetic
+
+    ndb, cfg = _media_paths()
+    name = provider or cfg["default_provider"]
+    try:
+        pcfg = provider_config(cfg, name)
+        r = get_phonetic(ndb, word, pcfg["phonetic_url"], provider=name)
+    except KeyError as e:
+        typer.secho(str(e), fg=typer.colors.RED)
+        raise typer.Exit(code=1)
+    except PhoneticFetchError as e:
+        typer.secho(str(e), fg=typer.colors.YELLOW)
+        raise typer.Exit(code=1)
+
+    src = "缓存" if r.from_cache else "联网"
+    typer.secho(f"{r.word}  [{src}]", fg=typer.colors.CYAN, bold=True)
+    typer.echo(f"  英: /{r.uk}/")
+    typer.echo(f"  美: /{r.us}/")
+
+
+@app.command(name="cache-stats")
+def cache_stats() -> None:
+    """发音/音标缓存统计。"""
+    import sqlite3
+
+    ndb = data_home() / "notebook.sqlite"
+    if not ndb.exists():
+        typer.echo("暂无缓存。")
+        return
+    con = sqlite3.connect(str(ndb))
+    try:
+        n_audio, hits_audio = con.execute(
+            "SELECT COUNT(*), COALESCE(SUM(hit_count),0) FROM audio_cache"
+        ).fetchone()
+        n_ph, hits_ph = con.execute(
+            "SELECT COUNT(*), COALESCE(SUM(hit_count),0) FROM phonetic_cache"
+        ).fetchone()
+        size = con.execute(
+            "SELECT COALESCE(SUM(size_bytes),0) FROM audio_cache").fetchone()[0]
+    finally:
+        con.close()
+    typer.echo(f"发音缓存: {n_audio} 条 / {size / 1024:.1f} KB / 命中 {hits_audio} 次")
+    typer.echo(f"音标缓存: {n_ph} 条 / 命中 {hits_ph} 次")
 
 
 # ---------- 导出 ----------
