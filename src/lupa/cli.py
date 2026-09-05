@@ -180,6 +180,83 @@ def stats() -> None:
     typer.echo(f"累计忘记: {s['lapses']}")
 
 
+@app.command()
+def review(
+    limit: int = typer.Option(20, "--limit", "-n", help="本次最多复习张数"),
+) -> None:
+    """交互式复习：逐词答题，固定间隔调度（1/3/7/15/30 天）。"""
+    from lupa.notebook.scheduler import EASE_AGAIN, EASE_EASY, EASE_GOOD, EASE_HARD
+
+    ndb = notebook_db()
+    if not Path(ndb).exists():
+        typer.secho("生词本为空。先 lupa add <word>。", fg=typer.colors.YELLOW)
+        raise typer.Exit(code=1)
+
+    cards = nb.due_words(ndb, limit=limit)
+    if not cards:
+        typer.secho("今日没有待复习的词。", fg=typer.colors.GREEN)
+        raise typer.Exit()
+
+    typer.echo(f"待复习 {len(cards)} 张卡。评分: 1=忘了 2=Hard 3=Good 4=Easy，s=跳过 q=退出\n")
+
+    ease_map = {"1": EASE_AGAIN, "2": EASE_HARD, "3": EASE_GOOD, "4": EASE_EASY}
+    state_names = {0: "新词", 1: "学习中", 2: "复习中", 3: "重学"}
+
+    reviewed = 0
+    again = 0
+    skip = 0
+    for i, e in enumerate(cards, 1):
+        # 正面：单词 + 音标 + 状态
+        state = state_names.get(e.card_type, "?")
+        front = e.word
+        if e.phonetic:
+            front += f"  /{e.phonetic}/"
+        typer.secho(f"[{i}/{len(cards)}] ({state}, 间隔{e.ivl}天)  {front}",
+                    fg=typer.colors.CYAN, bold=True)
+        typer.prompt("想起来了就回车", default="", show_default=False)
+
+        # 背面：释义
+        if e.translation:
+            typer.echo(e.translation)
+        if e.definition:
+            typer.echo(f"  -- {e.definition}")
+        if e.exchange:
+            typer.echo(f"  变形: {e.exchange}")
+
+        while True:
+            raw = typer.prompt(
+                typer.style("评分 [1/2/3/4] s=跳过 q=退出", fg=typer.colors.YELLOW),
+                default="3", show_default=True,
+            ).strip().lower()
+            if raw in ease_map or raw in ("s", "q"):
+                break
+            typer.secho("无效输入，请输入 1-4 / s / q", fg=typer.colors.RED)
+
+        if raw == "q":
+            typer.echo("\n提前结束。")
+            break
+        if raw == "s":
+            skip += 1
+            typer.echo()
+            continue
+
+        next_ivl, next_due = nb.answer_card(ndb, e.card_id, ease_map[raw])
+        reviewed += 1
+        if ease_map[raw] == EASE_AGAIN:
+            again += 1
+            typer.secho(f"  -> 忘了，明天见", fg=typer.colors.RED)
+        else:
+            due = time.strftime("%m-%d %H:%M", time.localtime(next_due))
+            typer.secho(f"  -> 下次 {next_ivl} 天后 ({due})", fg=typer.colors.GREEN)
+        typer.echo()
+
+    typer.secho(
+        f"本次完成: 答题 {reviewed}，跳过 {skip}，忘了 {again}。剩余待复习: "
+        f"{len(nb.due_words(ndb, limit=9999))}",
+        fg=typer.colors.CYAN if reviewed else typer.colors.YELLOW,
+    )
+
+
 # ---------- 导出 ----------
 
 
