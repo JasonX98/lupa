@@ -1,0 +1,66 @@
+# ---------- Python ----------
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+ENV/
+env/
+.eggs/
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.hypothesis/
+.coverage
+htmlcov/
+
+# ---------- Lupa 数据（隐私，绝不入仓） ----------
+data/
+*.sqlite
+*.sqlite-journal
+*.sqlite-wal
+*.sqlite-shm
+*.db
+*.db-journal
+*.db-wal
+
+# 媒体缓存（生词 TTS/MP3 文件，运行时产物）
+/media/
+*.mp3
+*.wav
+*.ogg
+*.m4a
+
+# 用户笔记
+notes.md
+*.local
+
+# ---------- ECDICT 原始词库（可走单独下载脚本，不入仓） ----------
+*.csv
+!tests/fixtures/*.csv
+ecdict/
+ecdict.csv
+stardict.7z
+
+# ---------- IDE / 编辑器 ----------
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# ---------- OS ----------
+.DS_Store
+Thumbs.db
+desktop.ini
+$RECYCLE.BIN/
+
+# ---------- 临时 ----------
+*.tmp
+*.bak
+*.log

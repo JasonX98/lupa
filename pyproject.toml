@@ -1,0 +1,55 @@
+[project]
+name = "lupa"
+version = "0.1.0"
+description = "Lupa / 璐帕 — 看清单词，留住单词，归你所有 (离线英语词典 CLI)"
+readme = "README.md"
+requires-python = ">=3.13"
+license = { text = "MIT" }
+authors = [
+    { name = "白驹过隙", email = "liull621@sina.com" },
+]
+keywords = ["dictionary", "english", "anki", "vocabulary", "offline"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: Education",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Education",
+]
+
+# 依赖只列必要两项：Typer (CLI 框架) + genanki (apkg 导出)。
+# 其它一律走 Python 标准库（sqlite3、zipfile、http.client...）。
+dependencies = [
+    "typer>=0.12.3",
+    "genanki>=0.13.1",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "ruff>=0.5",
+]
+
+[project.scripts]
+lupa = "lupa.cli:app"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/lupa"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
+ignore = ["E501"]  # 行长交给 formatter
+
+[tool.pytest.ini_options]
+addopts = "-ra --strict-markers"
+testpaths = ["tests"]
