@@ -9,10 +9,14 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
-/// 初始化 sqflite ffi（应用/脚本启动时调用一次）。
+/// 初始化 sqflite ffi（幂等：只在首次生效，重复调用不再重设全局工厂——
+/// 否则 sqflite 每次都会打 "changing sqflite default factory" 告警）。
+bool _dbFactoryInited = false;
 void initDatabaseFactory() {
+  if (_dbFactoryInited) return;
   sqfliteFfiInit();
   databaseFactory = databaseFactoryFfi;
+  _dbFactoryInited = true;
 }
 
 /// 数据目录：LUPA_HOME 环境变量优先，默认 ~/.lupa。返回绝对路径（sqflite ffi 不接受相对路径）。
