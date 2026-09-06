@@ -4,6 +4,7 @@
 import 'dart:io';
 
 import 'package:lupa/data/config.dart';
+import 'package:lupa/data/data_home.dart';
 import 'package:lupa/data/notebook_db.dart';
 import 'package:lupa/media/phonetic.dart';
 import 'package:lupa/media/tts.dart';

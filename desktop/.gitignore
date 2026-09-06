@@ -45,3 +45,5 @@ app.*.map.json
 /android/app/release
 .flutter
 .flutter_tool_state
+# Flutter 构建时生成的默认图标备份
+*.bak-flutter-default

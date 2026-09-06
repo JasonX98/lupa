@@ -9,6 +9,7 @@ import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
 
 import 'package:lupa/data/config.dart';
+import 'package:lupa/data/data_home.dart';
 import 'package:lupa/data/notebook_db.dart';
 import 'package:lupa/export/apkg.dart' as apkg_export;
 import 'package:lupa/export/csv.dart' as csv_export;

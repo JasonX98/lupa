@@ -68,8 +68,8 @@ class LupaErrorApp extends StatelessWidget {
                       style: const TextStyle(fontSize: 14, height: 1.6)),
                   const SizedBox(height: 12),
                   const Text(
-                    '排查：确认 LUPA_HOME 环境变量指向含 dict.sqlite 的目录，'
-                    '或默认目录 ~/.lupa 可写。',
+                    '排查：确认 LUPA_HOME 指向含 dict.sqlite 的目录，'
+                    '或数据目录（应用旁的 lupa_data/）可写。',
                     style: TextStyle(fontSize: 13, height: 1.6),
                   ),
                 ],

@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
+import 'package:lupa/data/data_home.dart';
 import 'package:lupa/data/notebook_db.dart';
 import 'package:lupa/dict/query.dart' show queryWord;
 import 'package:lupa/notebook/repo.dart';

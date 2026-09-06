@@ -11,7 +11,7 @@ Lupa 是一款英语学习离线词典，重点不是"再多一个词典"，而�
 
 ## 状态
 
-**v0.2** — Windows 桌面版 GUI 全量可用（查词 / 生词本 / 复习 / 导出 + 明暗双主题），Python CLI 六命令稳定。桌面版导出的 apkg 与 CLI 版经 Anki 官方后端导入对比验证完全一致。
+**v0.1.0** — Windows 桌面版 GUI 全量可用（查词 / 生词本 / 复习 / 导出 + 明暗双主题），Python CLI 六命令稳定。桌面版导出的 apkg 与 CLI 版经 Anki 官方后端导入对比验证完全一致。
 
 ## 已拍板的产品决策
 
@@ -32,7 +32,8 @@ Lupa 是一款英语学习离线词典，重点不是"再多一个词典"，而�
 cd desktop
 flutter pub get
 
-# 数据目录（含 dict.sqlite / notebook.sqlite，与 CLI 共享）
+# 便携默认：数据目录在应用旁的 lupa_data/（含 dict.sqlite / notebook.sqlite），解压即用
+# 如需与 Python CLI 共享同一份数据，再显式设置 LUPA_HOME：
 set LUPA_HOME=D:\AppFile\Lupa\data
 
 flutter run -d windows
@@ -40,14 +41,25 @@ flutter run -d windows
 flutter build windows --release
 ```
 
-依赖：Flutter SDK（Windows 桌面支持）、`LUPA_HOME` 指向数据目录。运行时依赖仅 `sqflite_common_ffi` / `audioplayers` / `ganki` 等，无 Python。
+依赖：Flutter SDK（Windows 桌面支持）。数据目录默认在应用旁的 `lupa_data/`——发布 zip 解压到可写目录即可直接双击使用；开发调试或与 CLI 共享数据时设 `LUPA_HOME`。运行时依赖仅 `sqflite_common_ffi` / `audioplayers` / `ganki` 等，无 Python。
+
+### 发布 zip
+
+`flutter build windows --release` 后打包即得便携发行包（免安装、免环境变量）：
+
+```
+Lupa-v0.1.0-windows.zip
+├── lupa.exe  + 运行时 DLL               # 双击即用
+├── data/                               # 含 schema.sql（首次建库模板）
+└── lupa_data/                          # 词典与生词本（解压即用，随包）
+```
 
 ### 功能
 
 - **查词**：前缀联想、英美音标、考试标签（柯林斯/牛津/词频）、词形变化、一键收藏、美/英朗读
 - **生词本**：统计条（总词数/新词/复习中/今日到期/遗忘）、点词条目弹出详情卡片
 - **复习**：到期队列逐卡作答，评分即时推进调度并写 revlog
-- **导出**：Anki apkg + CSV（UTF-8 BOM），导出到 `LUPA_HOME/exports`
+- **导出**：Anki apkg + CSV（UTF-8 BOM），导出到数据目录 `exports/`
 - 明暗双主题（「纸感 + 玉色」，WCAG AA 对比度达标）
 
 ### 快捷键
@@ -121,7 +133,7 @@ src/lupa/                  # Python CLI
 └── media/                 # phonetic.py / tts.py
 
 desktop/                   # Flutter Windows 桌面版
-├── lib/data/              # config / notebook_db / schema.sql（复用 Python 版）
+├── lib/data/              # data_home（数据目录解析）/ config / notebook_db / schema.sql（复用 Python 版）
 ├── lib/dict|notebook|media|export/   # 与 Python 版同构的业务模块
 ├── lib/theme/             # 「纸感 + 玉色」设计 token（明暗双主题）
 ├── lib/state/             # AppState 编排层

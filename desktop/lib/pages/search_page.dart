@@ -93,7 +93,7 @@ class _SearchPageState extends State<SearchPage> {
       if (e == null) {
         setState(() {
           _loading = false;
-          _error = '词库中没有「$w」— 试试别的拼写，或检查 LUPA_HOME/dict.sqlite';
+          _error = '词库中没有「$w」— 试试别的拼写，或检查数据目录 lupa_data/dict.sqlite';
         });
         return;
       }

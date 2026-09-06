@@ -160,7 +160,7 @@ class _AppShellState extends State<AppShell> {
           ),
           Padding(
             padding: const EdgeInsets.fromLTRB(22, 6, 22, 16),
-            child: Text('v1.0.0 · 本地优先', style: text.labelSmall),
+            child: Text('v0.1.0 · 本地优先', style: text.labelSmall),
           ),
         ],
       ),

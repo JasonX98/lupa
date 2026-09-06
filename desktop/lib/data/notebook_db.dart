@@ -1,13 +1,16 @@
 // Lupa 数据层 — notebook 库初始化与数据目录解析。
 //
 // 与 Python 版对齐：
-// - 目录约定同 src/lupa/cli.py 的 data_home()：LUPA_HOME 环境变量优先，默认 ~/.lupa
+// - 目录约定同 src/lupa/cli.py 的 data_home()：LUPA_HOME 环境变量优先，默认 <exe>/lupa_data
 // - ensureNotebook 同 src/lupa/notebook/repo.py 的 ensure_notebook()：库文件存在则跳过（幂等），否则执行 schema.sql 建表
 // - schema.sql 复制自 src/lupa/notebook/schema.sql（两份必须保持同步；此处为 Dart 侧唯一执行源）
+// - 数据目录唯一解析见 lib/data/data_home.dart
 import 'dart:io';
 
 import 'package:path/path.dart' as p;
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+
+import 'data_home.dart';
 
 /// 初始化 sqflite ffi（幂等：只在首次生效，重复调用不再重设全局工厂——
 /// 否则 sqflite 每次都会打 "changing sqflite default factory" 告警）。
@@ -17,14 +20,6 @@ void initDatabaseFactory() {
   sqfliteFfiInit();
   databaseFactory = databaseFactoryFfi;
   _dbFactoryInited = true;
-}
-
-/// 数据目录：LUPA_HOME 环境变量优先，默认 ~/.lupa。返回绝对路径（sqflite ffi 不接受相对路径）。
-Directory dataHome() {
-  final env = Platform.environment['LUPA_HOME'];
-  if (env != null && env.isNotEmpty) return Directory(p.absolute(env));
-  final home = Platform.environment['USERPROFILE'] ?? Platform.environment['HOME'] ?? '.';
-  return Directory(p.absolute(p.join(home, '.lupa')));
 }
 
 /// 词库文件路径（dict.sqlite，只读）。绝对路径（sqflite ffi 不接受相对路径）。
