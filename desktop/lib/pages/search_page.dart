@@ -13,7 +13,9 @@ import 'package:lupa/widgets/word_bits.dart';
 
 class SearchPage extends StatefulWidget {
   final AppState state;
-  const SearchPage({super.key, required this.state});
+  final bool isActive; // 由 AppShell 传入：切回本页时把焦点还给搜索框
+
+  const SearchPage({super.key, required this.state, this.isActive = true});
 
   @override
   State<SearchPage> createState() => _SearchPageState();
@@ -35,6 +37,13 @@ class _SearchPageState extends State<SearchPage> {
   void initState() {
     super.initState();
     _focus.requestFocus();
+  }
+
+  @override
+  void didUpdateWidget(covariant SearchPage old) {
+    super.didUpdateWidget(old);
+    // 从别的页切回来：焦点还给搜索框（否则焦点留在隐藏页，打字无响应）
+    if (widget.isActive && !old.isActive) _focus.requestFocus();
   }
 
   @override

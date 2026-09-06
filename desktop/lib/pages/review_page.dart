@@ -29,18 +29,34 @@ class _ReviewPageState extends State<ReviewPage> {
   int _againCount = 0;
   String? _lastFeedback;
   bool _submitting = false;
+  final _focus = FocusNode();
 
   @override
   void initState() {
     super.initState();
     _reload();
+    if (widget.isActive) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _focus.requestFocus();
+      });
+    }
   }
 
   @override
   void didUpdateWidget(covariant ReviewPage old) {
     super.didUpdateWidget(old);
-    // 从别的页切过来：重拉到期队列
-    if (widget.isActive && !old.isActive) _reload();
+    // 从别的页切过来：重拉到期队列，并把焦点要回来
+    //（IndexedStack 下页面常驻，搜索框可能一直持有焦点，空格会打进隐藏输入框）
+    if (widget.isActive && !old.isActive) {
+      _reload();
+      _focus.requestFocus();
+    }
+  }
+
+  @override
+  void dispose() {
+    _focus.dispose();
+    super.dispose();
   }
 
   Future<void> _reload() async {
@@ -127,6 +143,7 @@ class _ReviewPageState extends State<ReviewPage> {
   @override
   Widget build(BuildContext context) {
     return Focus(
+      focusNode: _focus,
       onKeyEvent: _onKey,
       autofocus: true,
       child: _loading

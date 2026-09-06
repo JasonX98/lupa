@@ -33,7 +33,7 @@ class _AppShellState extends State<AppShell> {
   @override
   Widget build(BuildContext context) {
     final pages = [
-      SearchPage(state: widget.state),
+      SearchPage(state: widget.state, isActive: _page == 0),
       NotebookPage(state: widget.state, onGotoReview: () => _go(2)),
       ReviewPage(state: widget.state, isActive: _page == 2),
       ExportPage(state: widget.state),
