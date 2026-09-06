@@ -136,7 +136,7 @@ class _WordDetailDialogState extends State<WordDetailDialog> {
                     ),
                     // ---- 口音朗读 ----
                     Row(children: [
-                      for (final (label, accent) in [('美音', 'us'), ('英音', 'uk')])
+                      for (final (label, accent) in [('英音', 'uk'), ('美音', 'us')])
                         Padding(
                           padding: const EdgeInsets.only(right: 8),
                           child: OutlinedButton.icon(
