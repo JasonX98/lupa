@@ -110,7 +110,8 @@ Future<AudioResult> getAudio(
   final key = '$provider:${word.toLowerCase()}:mp3-$accent';
 
   initDatabaseFactory();
-  final con = await databaseFactory.openDatabase(p.absolute(nbPath));
+  final con = await databaseFactory.openDatabase(p.absolute(nbPath),
+      options: OpenDatabaseOptions(singleInstance: false));
   try {
     if (useCache) {
       final blob = await _cacheGet(con, key);

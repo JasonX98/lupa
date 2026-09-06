@@ -56,7 +56,8 @@ Future<String> ensureNotebookDb(String dbPath) async {
   if (file.existsSync()) return file.path;
 
   final sql = await loadSchemaSql();
-  final db = await databaseFactory.openDatabase(file.path);
+  final db = await databaseFactory.openDatabase(file.path,
+      options: OpenDatabaseOptions(singleInstance: false));
   try {
     await db.execute(sql);
   } finally {

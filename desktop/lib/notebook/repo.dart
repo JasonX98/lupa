@@ -93,7 +93,7 @@ int _csum(String flds) {
 Future<Map<String, Object?>> _checkDictWord(String dictDb, String word) async {
   initDatabaseFactory();
   final con = await databaseFactory.openDatabase(dictDb,
-      options: OpenDatabaseOptions(readOnly: true));
+      options: OpenDatabaseOptions(readOnly: true, singleInstance: false));
   try {
     final rows = await con.rawQuery(
       'SELECT * FROM dict WHERE word = ? COLLATE NOCASE',
@@ -318,8 +318,12 @@ Future<Map<String, int>> notebookStats(String nbPath) async {
 }
 
 /// 打开生词本连接（启用外键级联，与 Python 版 _connect 一致）。
+/// singleInstance: false —— sqflite 默认同路径返回连接单例，A 函数 close
+/// 会把 B 并发查询的连接关掉（database_closed）；独立连接才符合
+/// 「函数内开、finally 关」的模型。
 Future<Database> _openNb(String nbPath) async {
-  final con = await databaseFactory.openDatabase(p.absolute(nbPath));
+  final con = await databaseFactory.openDatabase(p.absolute(nbPath),
+      options: OpenDatabaseOptions(singleInstance: false));
   await con.execute('PRAGMA foreign_keys = ON');
   return con;
 }

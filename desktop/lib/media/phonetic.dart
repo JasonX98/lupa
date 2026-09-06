@@ -114,7 +114,8 @@ Future<PhoneticResult> getPhonetic(
   final usKey = '$provider:${word.toLowerCase()}:us';
 
   initDatabaseFactory();
-  final con = await databaseFactory.openDatabase(p.absolute(nbPath));
+  final con = await databaseFactory.openDatabase(p.absolute(nbPath),
+      options: OpenDatabaseOptions(singleInstance: false));
   try {
     String? uk;
     String? us;

@@ -87,7 +87,8 @@ Future<Database> openDict([Directory? home]) async {
   if (!File(path).existsSync()) {
     throw FileSystemException('词库不存在，先构建词库', path);
   }
-  return databaseFactory.openDatabase(path, options: OpenDatabaseOptions(readOnly: true));
+  return databaseFactory.openDatabase(path,
+      options: OpenDatabaseOptions(readOnly: true, singleInstance: false));
 }
 
 /// 按单词精确查询（大小写不敏感）。查不到返回 null。
