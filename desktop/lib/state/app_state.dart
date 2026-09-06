@@ -74,6 +74,38 @@ class AppState extends ChangeNotifier {
   Future<PhoneticResult> phonetic(String word) =>
       getPhonetic(nbPath, word, _providerUrl('phonetic_url'));
 
+  // ---- 音标展示统一层 ----
+  // 列表/复习/详情卡的音标都走「在线缓存优先」，与查词页同源，
+  // 避免 ECDICT 老式音标（si'ri:n）与在线现代 IPA（səˈriːn）混排不一致。
+  // 数据层不动：notes.flds 里的 ECDICT 音标是 Anki 导出契约的一部分。
+  final Map<String, PhoneticResult> _phonetics = {};
+  final Set<String> _phoneticLoading = {};
+
+  /// 已取到的在线音标（可能为 null = 还没拉到，展示层回退 ECDICT 字段）。
+  PhoneticResult? phoneticOf(String word) =>
+      _phonetics[word.trim().toLowerCase()];
+
+  /// 批量预热音标：逐词走 getPhonetic（缓存命中秒回，未命中联网），
+  /// 每成功一个通知一次，列表渐进增强。失败静默（离线兜底 ECDICT）。
+  Future<void> preloadPhonetics(Iterable<String> words) async {
+    for (final w in words) {
+      final key = w.trim().toLowerCase();
+      if (_phonetics.containsKey(key) || _phoneticLoading.contains(key)) {
+        continue;
+      }
+      _phoneticLoading.add(key);
+      try {
+        final p = await getPhonetic(nbPath, w, _providerUrl('phonetic_url'));
+        _phonetics[key] = p;
+        notifyListeners();
+      } catch (_) {
+        // 离线/未收录：静默，展示层回退 ECDICT 音标
+      } finally {
+        _phoneticLoading.remove(key);
+      }
+    }
+  }
+
   /// 朗读：TTS 取音（缓存优先）→ 内存字节直喂播放器（BytesSource）。
   /// 不写临时文件——Windows 端走 Media Foundation 内存 IStream，无清理问题。
   Future<void> speak(String word, String accent) async {

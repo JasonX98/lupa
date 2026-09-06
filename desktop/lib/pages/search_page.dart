@@ -393,14 +393,8 @@ class _ResultCard extends StatelessWidget {
   }
 
   String _displayPhonetic() {
-    if (phonetic != null && (phonetic!.us.isNotEmpty || phonetic!.uk.isNotEmpty)) {
-      final parts = [
-        if (phonetic!.uk.isNotEmpty) '英 ${phonetic!.uk}',
-        if (phonetic!.us.isNotEmpty) '美 ${phonetic!.us}',
-      ];
-      return parts.join('  ·  ');
-    }
-    return entry.phonetic.trim();
+    // 全站同源：在线优先，英美相同时只显示一个，ECDICT 兜底
+    return displayPhonetic(online: phonetic, fallback: entry.phonetic);
   }
 
   List<String> _badges() {

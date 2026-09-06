@@ -1,5 +1,18 @@
-// 词条内容展示的小工具：词形变化标签、柯林斯星级、到期文案。
+// 词条内容展示的小工具：词形变化标签、柯林斯星级、到期文案、音标展示。
 // 与 export/apkg.dart 的 _fmt_exchange 标签保持一致。
+import 'package:lupa/media/phonetic.dart';
+
+/// 展示音标：在线结果优先（英美相同时只显示一个），否则回退词库自带音标。
+String displayPhonetic({PhoneticResult? online, String fallback = ''}) {
+  final uk = online?.uk ?? '';
+  final us = online?.us ?? '';
+  if (uk.isNotEmpty && us.isNotEmpty) {
+    return uk == us ? uk : '英 $uk · 美 $us';
+  }
+  if (uk.isNotEmpty) return uk;
+  if (us.isNotEmpty) return us;
+  return fallback.trim();
+}
 /// 词形变化键 -> 中文标签（d=过去式 p=过去分词 i=现在分词 3=三单 s=复数 r=比较级 t=最高级）。
 const Map<String, String> exchangeLabels = {
   'd': '过去式',

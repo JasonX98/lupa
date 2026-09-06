@@ -212,16 +212,12 @@ class _WordDetailDialogState extends State<WordDetailDialog> {
   }
 
   String _displayPhonetic() {
-    final p = _phonetic;
-    if (p != null && (p.us.isNotEmpty || p.uk.isNotEmpty)) {
-      return [
-        if (p.uk.isNotEmpty) '英 ${p.uk}',
-        if (p.us.isNotEmpty) '美 ${p.us}',
-      ].join('  ·  ');
-    }
-    final nbPh = widget.entry.phonetic.trim();
-    if (nbPh.isNotEmpty) return nbPh;
-    return _dict?.phonetic.trim() ?? '';
+    // 与查词页/列表同源：在线缓存优先，英美相同时只显示一个，ECDICT 兜底
+    return displayPhonetic(
+        online: _phonetic,
+        fallback: widget.entry.phonetic.trim().isNotEmpty
+            ? widget.entry.phonetic
+            : (_dict?.phonetic ?? ''));
   }
 
   List<String> _badges(DictEntry e) {

@@ -72,6 +72,9 @@ class _ReviewPageState extends State<ReviewPage> {
       _lastFeedback = null;
       _loading = false;
     });
+    // 音标预热：与查词页同源（在线缓存优先），卡背面渐进增强
+    widget.state
+        .preloadPhonetics(_queue.take(20).map((e) => e.word));
   }
 
   NotebookEntry? get _current =>
@@ -242,8 +245,22 @@ class _ReviewPageState extends State<ReviewPage> {
                   fontWeight: FontWeight.w600,
                   color: Theme.of(context).colorScheme.onSurface)),
         ),
-        if (card.phonetic.trim().isNotEmpty)
-          Center(child: Text('/${card.phonetic.trim()}/', style: text.bodyMedium)),
+        if (card.phonetic.trim().isNotEmpty ||
+            widget.state.phoneticOf(card.word) != null)
+          Center(
+            // 音标与查词页同源：在线缓存优先，ECDICT 兜底
+            child: ListenableBuilder(
+              listenable: widget.state,
+              builder: (context, _) {
+                final ph = displayPhonetic(
+                    online: widget.state.phoneticOf(card.word),
+                    fallback: card.phonetic);
+                return ph.isEmpty
+                    ? const SizedBox.shrink()
+                    : Text('/$ph/', style: text.bodyMedium);
+              },
+            ),
+          ),
         const SizedBox(height: 16),
         if (card.translation.trim().isNotEmpty)
           Text(card.translation.trim(),

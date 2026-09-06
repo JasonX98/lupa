@@ -72,6 +72,8 @@ class NotebookPage extends StatelessWidget {
                 if (state.entries.isEmpty) {
                   return _EmptyState();
                 }
+                // 音标渐进增强：ECDICT 先显示，在线音标到了刷新
+                state.preloadPhonetics(state.entries.map((e) => e.word));
                 return ListView.separated(
                   padding: const EdgeInsets.only(bottom: 24),
                   itemCount: state.entries.length,
@@ -174,6 +176,9 @@ class _EntryRow extends StatelessWidget {
     final text = Theme.of(context).textTheme;
     final label = dueLabel(entry.cardType, entry.due);
     final isDueToday = label == '今天' || label == '新词';
+    // 音标与查词页同源：在线缓存优先，ECDICT 兜底
+    final phoneticText = displayPhonetic(
+        online: state.phoneticOf(entry.word), fallback: entry.phonetic);
 
     return Container(
       decoration: BoxDecoration(
@@ -197,10 +202,10 @@ class _EntryRow extends StatelessWidget {
                     style: TextStyle(
                         fontFamily: wordFontFamily, fontSize: 16.5,
                         fontWeight: FontWeight.w600, color: scheme.onSurface)),
-                if (entry.phonetic.trim().isNotEmpty) ...[
+                if (phoneticText.isNotEmpty) ...[
                   const SizedBox(width: 10),
                   Flexible(
-                    child: Text('/${entry.phonetic.trim()}/',
+                    child: Text('/$phoneticText/',
                         style: text.bodySmall, overflow: TextOverflow.ellipsis),
                   ),
                 ],
