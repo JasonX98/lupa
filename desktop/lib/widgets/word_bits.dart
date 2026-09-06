@@ -2,15 +2,13 @@
 // 与 export/apkg.dart 的 _fmt_exchange 标签保持一致。
 import 'package:lupa/media/phonetic.dart';
 
-/// 展示音标：在线结果优先（英美相同时只显示一个），否则回退词库自带音标。
+/// 展示音标：在线结果优先（英 / 美 同时展示，英前美后），否则回退词库自带音标。
 String displayPhonetic({PhoneticResult? online, String fallback = ''}) {
   final uk = online?.uk ?? '';
   final us = online?.us ?? '';
-  if (uk.isNotEmpty && us.isNotEmpty) {
-    return uk == us ? uk : '英 $uk · 美 $us';
-  }
-  if (uk.isNotEmpty) return uk;
-  if (us.isNotEmpty) return us;
+  if (uk.isNotEmpty && us.isNotEmpty) return '英 $uk · 美 $us';
+  if (uk.isNotEmpty) return '英 $uk';
+  if (us.isNotEmpty) return '美 $us';
   return fallback.trim();
 }
 /// 词形变化键 -> 中文标签（d=过去式 p=过去分词 i=现在分词 3=三单 s=复数 r=比较级 t=最高级）。
