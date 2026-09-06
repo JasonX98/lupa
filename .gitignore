@@ -20,7 +20,8 @@ build/
 htmlcov/
 
 # ---------- Lupa 数据（隐私，绝不入仓） ----------
-data/
+# 只排除根目录 data/（前导斜杠）；不带斜杠会匹配任意深度，误伤 desktop/lib/data/ 源码
+/data/
 *.sqlite
 *.sqlite-journal
 *.sqlite-wal
