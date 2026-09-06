@@ -28,7 +28,7 @@ class _SearchPageState extends State<SearchPage> {
   DictEntry? _entry;
   PhoneticResult? _phonetic;
   bool _loading = false;
-  bool _speaking = false;
+  String? _speakingAccent; // 正在朗读的口音（us/uk），null = 空闲
   String? _error;
 
   @override
@@ -108,8 +108,8 @@ class _SearchPageState extends State<SearchPage> {
   }
 
   Future<void> _speak(String accent) async {
-    if (_entry == null || _speaking) return;
-    setState(() => _speaking = true);
+    if (_entry == null || _speakingAccent != null) return;
+    setState(() => _speakingAccent = accent);
     try {
       await widget.state.speak(_entry!.word, accent);
     } catch (e) {
@@ -119,7 +119,7 @@ class _SearchPageState extends State<SearchPage> {
         );
       }
     } finally {
-      if (mounted) setState(() => _speaking = false);
+      if (mounted) setState(() => _speakingAccent = null);
     }
   }
 
@@ -241,7 +241,7 @@ class _SearchPageState extends State<SearchPage> {
                             builder: (context, _) =>
                                 _ResultCard(entry: _entry!, phonetic: _phonetic,
                                   starred: widget.state.isInNotebook(_entry!.word),
-                                  speaking: _speaking,
+                                  speakingAccent: _speakingAccent,
                                   onSpeak: _speak, onToggleStar: _toggleStar),
                           ),
               ),
@@ -281,7 +281,7 @@ class _ResultCard extends StatelessWidget {
   final DictEntry entry;
   final PhoneticResult? phonetic;
   final bool starred;
-  final bool speaking;
+  final String? speakingAccent; // 正在朗读的口音，只让对应按钮出状态
   final void Function(String accent) onSpeak;
   final VoidCallback onToggleStar;
 
@@ -289,7 +289,7 @@ class _ResultCard extends StatelessWidget {
     required this.entry,
     required this.phonetic,
     required this.starred,
-    required this.speaking,
+    required this.speakingAccent,
     required this.onSpeak,
     required this.onToggleStar,
   });
@@ -345,8 +345,9 @@ class _ResultCard extends StatelessWidget {
               Padding(
                 padding: const EdgeInsets.only(right: 8),
                 child: OutlinedButton.icon(
-                  onPressed: speaking ? null : () => onSpeak(accent),
-                  icon: speaking
+                  // 只有正在朗读的按钮禁用+转圈，另一个保持常态外观
+                  onPressed: speakingAccent == accent ? null : () => onSpeak(accent),
+                  icon: speakingAccent == accent
                       ? const SizedBox(width: 13, height: 13,
                           child: CircularProgressIndicator(strokeWidth: 2))
                       : const Icon(Icons.volume_up, size: 16),
