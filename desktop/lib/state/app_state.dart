@@ -2,6 +2,7 @@
 // 只做"编排"：把 dict / notebook / media / export 四个业务模块接到页面上。
 // 业务规则全部在数据层纯函数里，这里不写任何 SQL 与调度逻辑。
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
@@ -73,12 +74,12 @@ class AppState extends ChangeNotifier {
   Future<PhoneticResult> phonetic(String word) =>
       getPhonetic(nbPath, word, _providerUrl('phonetic_url'));
 
-  /// 朗读：TTS 取音（缓存优先）→ 临时文件 → 播放。
+  /// 朗读：TTS 取音（缓存优先）→ 内存字节直喂播放器（BytesSource）。
+  /// 不写临时文件——Windows 端走 Media Foundation 内存 IStream，无清理问题。
   Future<void> speak(String word, String accent) async {
     final audio = await getAudio(nbPath, word, accent, _providerUrl('tts_url'));
-    final f = await blobToTempfile(audio.blob);
     await _player.stop();
-    await _player.play(DeviceFileSource(f.path));
+    await _player.play(BytesSource(Uint8List.fromList(audio.blob)));
   }
 
   /// 复习评分。返回 (nextIvlDays, nextDueUnixSeconds)。

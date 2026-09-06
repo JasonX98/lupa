@@ -85,10 +85,10 @@ Future<void> main(List<String> args) async {
           keyList.contains('youdao:${word.toLowerCase()}:mp3-us'),
       detail: keyList);
 
-  // blob 落临时文件
-  final f = await blobToTempfile(a2.blob);
-  check('5.2 blobToTempfile 写盘', f.existsSync() && f.lengthSync() == a1.sizeBytes);
-  await f.parent.delete(recursive: true);
+  // blob 完整性（播放走 BytesSource 内存直喂，不再写临时文件）
+  check('5.2 blob 字节完整（长度=缓存记录）',
+      a2.blob.isNotEmpty && a2.blob.length == a1.sizeBytes,
+      detail: '${a2.blob.length}B');
 
   // 未收录词 TTS 应抛错（内容过小）
   var threw2 = false;

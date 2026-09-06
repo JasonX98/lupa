@@ -128,11 +128,3 @@ Future<AudioResult> getAudio(
     await con.close();
   }
 }
-
-/// 把音频 blob 写到临时文件，返回路径（供播放器打开）。
-Future<File> blobToTempfile(List<int> blob, {String suffix = '.mp3'}) async {
-  final tmp = await Directory.systemTemp.createTemp('lupa-');
-  final f = File(p.join(tmp.path, 'audio$suffix'));
-  await f.writeAsBytes(blob);
-  return f;
-}
