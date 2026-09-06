@@ -6,6 +6,7 @@ import 'package:lupa/notebook/repo.dart';
 import 'package:lupa/state/app_state.dart';
 import 'package:lupa/theme/lupa_theme.dart';
 import 'package:lupa/widgets/word_bits.dart';
+import 'package:lupa/widgets/word_detail_dialog.dart';
 
 class NotebookPage extends StatelessWidget {
   final AppState state;
@@ -175,14 +176,19 @@ class _EntryRow extends StatelessWidget {
     final isDueToday = label == '今天' || label == '新词';
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       decoration: BoxDecoration(
         color: scheme.surface,
         borderRadius: BorderRadius.circular(10),
         border: Border.all(color: Theme.of(context).dividerColor),
       ),
-      child: Row(children: [
-        Expanded(
+      // 整行可点 → 词详情卡片（移除按钮手势优先，不会误触发行点击）
+      child: InkWell(
+        borderRadius: BorderRadius.circular(10),
+        onTap: () => showWordDetailDialog(context, state, entry),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          child: Row(children: [
+            Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -245,7 +251,9 @@ class _EntryRow extends StatelessWidget {
           onPressed: () => _remove(context),
           icon: const Icon(Icons.close_rounded, size: 18),
         ),
-      ]),
+          ]),
+        ),
+      ),
     );
   }
 }
