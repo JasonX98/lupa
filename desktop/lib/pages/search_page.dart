@@ -42,8 +42,14 @@ class _SearchPageState extends State<SearchPage> {
   @override
   void didUpdateWidget(covariant SearchPage old) {
     super.didUpdateWidget(old);
-    // 从别的页切回来：焦点还给搜索框（否则焦点留在隐藏页，打字无响应）
-    if (widget.isActive && !old.isActive) _focus.requestFocus();
+    // 从别的页切回来：焦点还给搜索框（否则焦点留在隐藏页，打字无响应）。
+    // requestFocus 延后到帧末——didUpdateWidget 处于 build 阶段，
+    // build 期发焦点变更会触发 FocusManager 断言
+    if (widget.isActive && !old.isActive) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _focus.requestFocus();
+      });
+    }
   }
 
   @override

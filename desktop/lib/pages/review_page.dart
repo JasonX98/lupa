@@ -47,9 +47,13 @@ class _ReviewPageState extends State<ReviewPage> {
     super.didUpdateWidget(old);
     // 从别的页切过来：重拉到期队列，并把焦点要回来
     //（IndexedStack 下页面常驻，搜索框可能一直持有焦点，空格会打进隐藏输入框）
+    // requestFocus 必须延后到帧末——didUpdateWidget 处于 build 阶段，
+    // build 期发焦点变更会触发 FocusManager 断言
     if (widget.isActive && !old.isActive) {
       _reload();
-      _focus.requestFocus();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _focus.requestFocus();
+      });
     }
   }
 
