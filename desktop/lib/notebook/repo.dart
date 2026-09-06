@@ -3,7 +3,6 @@
 // schema 见 lib/data/schema.sql（notes / cards / revlog / 3 缓存表 / meta）。
 // 字段语义、id 生成、去重与错误行为均与 Python 版保持一致。
 import 'package:crypto/crypto.dart';
-import 'dart:io';
 import 'dart:math';
 
 import 'package:path/path.dart' as p;

@@ -129,7 +129,6 @@ Future<PhoneticResult> getPhonetic(
     final online = await fetchOnline(word, phoneticUrl);
     uk = (uk != null && uk.isNotEmpty) ? uk : online['uk']!;
     us = (us != null && us.isNotEmpty) ? us : online['us']!;
-    final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
     await _cachePut(con, ukKey, word, provider, 'uk', phoneticUrl, uk);
     await _cachePut(con, usKey, word, provider, 'us', phoneticUrl, us);
     return PhoneticResult(word: word, uk: uk, us: us, fromCache: false);
