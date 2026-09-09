@@ -7,8 +7,10 @@ import 'package:lupa/pages/export_page.dart';
 import 'package:lupa/pages/notebook_page.dart';
 import 'package:lupa/pages/review_page.dart';
 import 'package:lupa/pages/search_page.dart';
+import 'package:lupa/pages/settings_page.dart';
 import 'package:lupa/state/app_state.dart';
 import 'package:lupa/theme/lupa_theme.dart';
+import 'package:lupa/version.dart';
 
 class AppShell extends StatefulWidget {
   final AppState state;
@@ -37,6 +39,7 @@ class _AppShellState extends State<AppShell> {
       NotebookPage(state: widget.state, onGotoReview: () => _go(2)),
       ReviewPage(state: widget.state, isActive: _page == 2),
       ExportPage(state: widget.state),
+      SettingsPage(state: widget.state),
     ];
     return CallbackShortcuts(
       bindings: {
@@ -134,33 +137,44 @@ class _AppShellState extends State<AppShell> {
             const SizedBox(height: 4),
           ],
           const Spacer(),
-          // ---- 主题切换 ----
+          // ---- 设置入口（主题等统一进设置页）----
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 10),
-            child: InkWell(
+            child: Material(
+              color: _page == 4
+                  ? (isDark
+                      ? const Color(0xFF1E3A34)
+                      : const Color(0xFFE7F2EF))
+                  : Colors.transparent,
               borderRadius: BorderRadius.circular(8),
-              onTap: widget.state.toggleTheme,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-                child: Row(children: [
-                  Icon(
-                    switch (widget.state.themeMode) {
-                      ThemeMode.light => Icons.light_mode_outlined,
-                      ThemeMode.dark => Icons.dark_mode_outlined,
-                      ThemeMode.system => Icons.settings_brightness_outlined,
-                    },
-                    size: 18, color: scheme.outline),
-                  const SizedBox(width: 10),
-                  Text(widget.state.themeLabel, style: text.bodyMedium),
-                  const Spacer(),
-                  const Icon(Icons.autorenew, size: 13, color: Colors.transparent),
-                ]),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(8),
+                onTap: () => _go(4),
+                child: Padding(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+                  child: Row(children: [
+                    Icon(Icons.settings_outlined, size: 19,
+                        color: _page == 4 ? scheme.primary : scheme.outline),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text('设置',
+                          style: TextStyle(
+                              fontSize: 13.5,
+                              fontWeight:
+                                  _page == 4 ? FontWeight.w600 : FontWeight.w500,
+                              color: _page == 4
+                                  ? scheme.primary
+                                  : text.bodyMedium!.color)),
+                    ),
+                  ]),
+                ),
               ),
             ),
           ),
           Padding(
             padding: const EdgeInsets.fromLTRB(22, 6, 22, 16),
-            child: Text('v0.1.0 · 本地优先', style: text.labelSmall),
+            child: Text('v$lupaVersion · 本地优先', style: text.labelSmall),
           ),
         ],
       ),

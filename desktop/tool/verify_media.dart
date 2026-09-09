@@ -3,7 +3,10 @@
 // 说明: 未命中缓存时会真实联网（有道）。传词参数可自定义；默认用 "spike"（大概率未缓存）。
 import 'dart:io';
 
+import 'package:path/path.dart' as p;
+
 import 'package:lupa/data/config.dart';
+import 'package:lupa/data/data_files.dart';
 import 'package:lupa/data/data_home.dart';
 import 'package:lupa/data/notebook_db.dart';
 import 'package:lupa/media/phonetic.dart';
@@ -111,7 +114,71 @@ Future<void> main(List<String> args) async {
   }
   check('config 未知 provider 抛错', argErr);
 
+  // ---------- 设置模块数据层：缓存统计 / 清理 / 备份 / 复制（临时库，不污染真实数据） ----------
+  await verifyDataLayer();
+
   try { await con.close(); } catch (_) {}
   stdout.writeln(failures == 0 ? 'ALL PASS' : 'FAILURES: $failures');
   if (failures > 0) throw StateError('有失败项');
+}
+
+/// 用临时目录验证 mediaCacheStats / clearMediaCache / backupNotebook / copyDataDir，
+/// 跑完即删，不动真实 LUPA_HOME 数据。
+Future<void> verifyDataLayer() async {
+  final tmp = Directory(p.join(
+      Directory.systemTemp.path,
+      'lupa_media_${DateTime.now().microsecondsSinceEpoch}'));
+  tmp.createSync(recursive: true);
+  try {
+    final tmpNb = notebookDbPath(tmp);
+    await ensureNotebookDb(tmpNb);
+
+    // 造示例缓存行 + 词库占位 + exports
+    var con = await databaseFactory.openDatabase(tmpNb,
+        options: OpenDatabaseOptions(singleInstance: false));
+    await con.execute("INSERT INTO audio_cache "
+        "(cache_key, word, provider, fmt, url, blob, size_bytes, fetched_at, hit_count) "
+        "VALUES ('youdao:a:mp3-us','a','youdao','mp3','u',X'00',100,0,3)");
+    await con.execute("INSERT INTO audio_cache "
+        "(cache_key, word, provider, fmt, url, blob, size_bytes, fetched_at, hit_count) "
+        "VALUES ('youdao:b:mp3-uk','b','youdao','mp3','u',X'00',50,0,1)");
+    await con.execute("INSERT INTO phonetic_cache "
+        "(cache_key, word, provider, fmt, url, phonetic, fetched_at, hit_count) "
+        "VALUES ('youdao:a:uk','a','youdao','uk','u','\\u02c8e\u026a',0,2)");
+    await con.close();
+    File(p.join(tmp.path, 'dict.sqlite')).writeAsBytesSync([1, 2, 3]);
+    final exp = Directory(p.join(tmp.path, 'exports'))..createSync(recursive: true);
+    File(p.join(exp.path, 'x.csv')).writeAsStringSync('a,b');
+
+    // 3.1 统计
+    final stats = await mediaCacheStats(tmpNb);
+    check('3.1 媒体缓存统计',
+        stats.audioCount == 2 && stats.audioBytes == 150 && stats.audioHits == 4 &&
+            stats.phoneticCount == 1 && stats.phoneticHits == 2,
+        detail: 'audio ${stats.audioCount}/${stats.audioBytes}/${stats.audioHits} '
+            'phonetic ${stats.phoneticCount}/${stats.phoneticHits}');
+
+    // 3.3 备份
+    final backupPath = await backupNotebook(tmpNb);
+    check('3.3 备份生词本', File(backupPath).existsSync() &&
+        File(backupPath).lengthSync() == File(tmpNb).lengthSync(),
+        detail: backupPath);
+
+    // 3.4 复制数据目录
+    final dst = Directory(p.join(tmp.path, 'copied'));
+    await copyDataDir(tmp.path, dst.path);
+    check('3.4 copyDataDir 三件套',
+        File(p.join(dst.path, 'notebook.sqlite')).existsSync() &&
+            File(p.join(dst.path, 'dict.sqlite')).existsSync() &&
+            File(p.join(dst.path, 'exports', 'x.csv')).existsSync());
+
+    // 3.2 清理
+    final cleared = await clearMediaCache(tmpNb);
+    check('3.2 清理媒体缓存', cleared == 3, detail: '$cleared');
+    final stats2 = await mediaCacheStats(tmpNb);
+    check('3.2 清理后统计归零',
+        stats2.audioCount == 0 && stats2.phoneticCount == 0 && stats2.totalHits == 0);
+  } finally {
+    tmp.deleteSync(recursive: true);
+  }
 }

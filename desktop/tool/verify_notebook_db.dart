@@ -33,7 +33,7 @@ Future<void> main(List<String> args) async {
     final metaMap = {for (final r in meta) r['key'] as String: r['value']};
     stdout.writeln('meta: $metaMap');
 
-    final okMeta = metaMap['schema_version'] == '1' && metaMap['lupa_version'] == '0.1.0';
+    final okMeta = metaMap['schema_version'] == '1' && metaMap['lupa_version'] == '0.2.0';
     stdout.writeln('meta 校验: ${okMeta ? "PASS" : "FAIL"}');
 
     // 幂等性：再次调用 ensureNotebook 不重建（与 Python 版一致）

@@ -1,9 +1,11 @@
 // Lupa 冒烟测试：主题 token 可生成、外壳类型存在。
 // AppState 依赖 sqlite/网络，UI 全流程验证走 tool/verify_e2e.dart（headless）。
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:lupa/theme/lupa_theme.dart';
 import 'package:lupa/widgets/app_shell.dart';
+import 'package:lupa/widgets/tag_chip.dart';
 import 'package:lupa/widgets/word_bits.dart';
 
 void main() {
@@ -28,7 +30,27 @@ void main() {
     expect(dueLabel(2, 1000), '今天');
   });
 
+  test('语义色 token：与设计稿一致', () {
+    // 标签按类型配色依赖这些 token（考试=主色 / 柯林斯=琥珀 / 牛津=紫 / 成功=绿）
+    expect(LupaColors.warningLight.toARGB32(), 0xFFA96008);
+    expect(LupaColors.violetLight.toARGB32(), 0xFF5B4FCF);
+    expect(LupaColors.infoLight.toARGB32(), 0xFF3C5BA9);
+    expect(LupaColors.successLight.toARGB32(), 0xFF1F7A4D);
+    // 深色提亮值（与浅色不同，保对比度）
+    expect(LupaColors.warningDark, isNot(LupaColors.warningLight));
+    expect(LupaColors.violetDark, isNot(LupaColors.violetLight));
+  });
+
   test('AppShell 类型存在', () {
     expect(AppShell, isNotNull);
+  });
+
+  testWidgets('TagChip：各类型可渲染（查词卡与生词本弹窗共用）', (tester) async {
+    for (final kind in TagKind.values) {
+      await tester.pumpWidget(MaterialApp(
+        home: Scaffold(body: Center(child: TagChip(label: 'cet6', kind: kind))),
+      ));
+      expect(find.text('cet6'), findsOneWidget);
+    }
   });
 }

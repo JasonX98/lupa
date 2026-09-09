@@ -8,6 +8,7 @@ import 'package:lupa/media/phonetic.dart';
 import 'package:lupa/notebook/repo.dart';
 import 'package:lupa/state/app_state.dart';
 import 'package:lupa/theme/lupa_theme.dart';
+import 'package:lupa/widgets/tag_chip.dart';
 import 'package:lupa/widgets/word_bits.dart';
 
 /// 弹出单词详情卡片。
@@ -160,9 +161,10 @@ class _WordDetailDialogState extends State<WordDetailDialog> {
                         spacing: 6,
                         runSpacing: 6,
                         children: [
-                          for (final chip in _badges(_dict!))
-                            _TagChip(label: chip, emphasize: true),
-                          for (final t in tagList(tag)) _TagChip(label: t),
+                          for (final (label, kind) in _badges(_dict!))
+                            TagChip(label: label, kind: kind),
+                          for (final t in tagList(tag))
+                            TagChip(label: t, kind: TagKind.exam),
                         ],
                       ),
                       const SizedBox(height: 16),
@@ -220,40 +222,13 @@ class _WordDetailDialogState extends State<WordDetailDialog> {
             : (_dict?.phonetic ?? ''));
   }
 
-  List<String> _badges(DictEntry e) {
-    final badges = <String>[];
+  List<(String, TagKind)> _badges(DictEntry e) {
+    final badges = <(String, TagKind)>[];
     final stars = collinsStars(e.collins);
-    if (stars.isNotEmpty) badges.add('柯林斯 $stars');
-    if (e.oxford == 1) badges.add('牛津 3000');
-    if (e.frq > 0) badges.add('词频 #${e.frq}');
+    if (stars.isNotEmpty) badges.add(('柯林斯 $stars', TagKind.collins));
+    if (e.oxford == 1) badges.add(('牛津 3000', TagKind.oxford));
+    if (e.frq > 0) badges.add(('词频 #${e.frq}', TagKind.freq));
     return badges;
-  }
-}
-
-// 弹窗内的迷你标签（与查词页 _Chip 同风格：圆角胶囊、低调底色）。
-class _TagChip extends StatelessWidget {
-  final String label;
-  final bool emphasize;
-  const _TagChip({required this.label, this.emphasize = false});
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-      decoration: BoxDecoration(
-        color: emphasize
-            ? (isDark ? const Color(0xFF1E3A34) : const Color(0xFFE7F2EF))
-            : scheme.surfaceContainerHighest.withValues(alpha: 0.6),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Text(label,
-          style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: emphasize ? scheme.primary : scheme.onSurfaceVariant)),
-    );
   }
 }
 

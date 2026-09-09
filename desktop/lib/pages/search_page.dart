@@ -9,6 +9,7 @@ import 'package:lupa/media/phonetic.dart';
 import 'package:lupa/notebook/repo.dart';
 import 'package:lupa/state/app_state.dart';
 import 'package:lupa/theme/lupa_theme.dart';
+import 'package:lupa/widgets/tag_chip.dart';
 import 'package:lupa/widgets/word_bits.dart';
 
 class SearchPage extends StatefulWidget {
@@ -257,7 +258,9 @@ class _SearchPageState extends State<SearchPage> {
                                 _ResultCard(entry: _entry!, phonetic: _phonetic,
                                   starred: widget.state.isInNotebook(_entry!.word),
                                   speakingAccent: _speakingAccent,
-                                  onSpeak: _speak, onToggleStar: _toggleStar),
+                                  onSpeak: _speak, onToggleStar: _toggleStar,
+                                  defFontSize: widget.state.defFontSize,
+                                  showEnglish: widget.state.showEnglish),
                           ),
               ),
             ),
@@ -299,6 +302,8 @@ class _ResultCard extends StatelessWidget {
   final String? speakingAccent; // 正在朗读的口音，只让对应按钮出状态
   final void Function(String accent) onSpeak;
   final VoidCallback onToggleStar;
+  final int defFontSize;
+  final bool showEnglish;
 
   const _ResultCard({
     required this.entry,
@@ -307,6 +312,8 @@ class _ResultCard extends StatelessWidget {
     required this.speakingAccent,
     required this.onSpeak,
     required this.onToggleStar,
+    this.defFontSize = 14,
+    this.showEnglish = true,
   });
 
   @override
@@ -354,9 +361,9 @@ class _ResultCard extends StatelessWidget {
               ),
             ],
           ),
-          // ---- 口音朗读 ----
+          // ---- 口音朗读（统一英音在前、美音在后，与生词本详情弹窗一致）----
           Row(children: [
-            for (final (label, accent) in [('英音', 'uk'), ('美音', 'us')])
+            for (final (label, accent) in const [('英音', 'uk'), ('美音', 'us')])
               Padding(
                 padding: const EdgeInsets.only(right: 8),
                 child: OutlinedButton.icon(
@@ -376,17 +383,22 @@ class _ResultCard extends StatelessWidget {
             spacing: 6,
             runSpacing: 6,
             children: [
-              for (final chip in _badges()) _Chip(label: chip, emphasize: true),
-              for (final t in tagList(entry.tag)) _Chip(label: t),
+              for (final (label, kind) in _badges())
+                TagChip(label: label, kind: kind),
+              for (final t in tagList(entry.tag))
+                TagChip(label: t, kind: TagKind.exam),
             ],
           ),
           const SizedBox(height: 18),
           // ---- 释义 ----
-          Text(entry.translation.trim(), style: text.bodyLarge),
-          if (entry.definition.trim().isNotEmpty) ...[
+          Text(entry.translation.trim(),
+              style: text.bodyLarge!.copyWith(fontSize: defFontSize.toDouble())),
+          if (showEnglish && entry.definition.trim().isNotEmpty) ...[
             const SizedBox(height: 10),
             Text(entry.definition.trim(),
-                style: text.bodySmall!.copyWith(fontStyle: FontStyle.italic)),
+                style: text.bodySmall!.copyWith(
+                    fontStyle: FontStyle.italic,
+                    fontSize: (defFontSize - 1.5).clamp(11.0, 16.0).toDouble())),
           ],
           // ---- 词形变化 ----
           ...exchangeLines(entry.exchange).map((line) => Padding(
@@ -403,40 +415,14 @@ class _ResultCard extends StatelessWidget {
     return displayPhonetic(online: phonetic, fallback: entry.phonetic);
   }
 
-  List<String> _badges() {
-    final badges = <String>[];
+  List<(String, TagKind)> _badges() {
+    final badges = <(String, TagKind)>[];
     final stars = collinsStars(entry.collins);
-    if (stars.isNotEmpty) badges.add('柯林斯 $stars');
-    if (entry.oxford == 1) badges.add('牛津 3000');
-    if (entry.frq > 0) badges.add('词频 #${entry.frq}');
+    if (stars.isNotEmpty) badges.add(('柯林斯 $stars', TagKind.collins));
+    if (entry.oxford == 1) badges.add(('牛津 3000', TagKind.oxford));
+    if (entry.frq > 0) badges.add(('词频 #${entry.frq}', TagKind.freq));
     return badges;
   }
 }
 
-class _Chip extends StatelessWidget {
-  final String label;
-  final bool emphasize;
-  const _Chip({required this.label, this.emphasize = false});
 
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: emphasize
-            ? (isDark ? const Color(0xFF1E3A34) : const Color(0xFFE7F2EF))
-            : scheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          fontSize: 12,
-          color: emphasize ? scheme.primary : Theme.of(context).textTheme.bodySmall!.color,
-        ),
-      ),
-    );
-  }
-}

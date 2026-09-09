@@ -11,7 +11,7 @@ Lupa 是一款英语学习离线词典，重点不是"再多一个词典"，而�
 
 ## 状态
 
-**v0.1.0** — Windows 桌面版 GUI 全量可用（查词 / 生词本 / 复习 / 导出 + 明暗双主题），Python CLI 六命令稳定。桌面版导出的 apkg 与 CLI 版经 Anki 官方后端导入对比验证完全一致。
+**v0.2.0** — 新增**设置模块**（外观 / 发音 / 复习 / 数据四组，全部写回 `config.json`）：主题、释义字号、默认口音、发音服务商地址、媒体缓存统计与清理、复习自动朗读、**数据目录运行时切换**（复制现有数据 / 新开空白）、生词本一键备份。复习卡新增 **3D 翻面**动效（响应系统"减少动效"），考试标签按类型配色并在查词卡与生词本详情弹窗统一。桌面版导出的 apkg 与 CLI 版经 Anki 官方后端导入对比验证完全一致。
 
 ## 已拍板的产品决策
 
@@ -45,22 +45,24 @@ flutter build windows --release
 
 ### 发布 zip
 
-`flutter build windows --release` 后打包即得便携发行包（免安装、免环境变量）：
+`flutter build windows --release` 后打包即得便携发行包（免安装、免环境变量）。发行 zip 统一放在构建输出目录：`desktop/build/windows/x64/runner/Release/Lupa-<version>-windows.zip`。
 
 ```
-Lupa-v0.1.0-windows.zip
-├── lupa.exe  + 运行时 DLL               # 双击即用
-├── data/                               # 含 schema.sql（首次建库模板）
-└── lupa_data/                          # 词典与生词本（解压即用，随包）
+Lupa-v0.2.0-windows.zip
+└── Lupa-v0.2.0-windows/         # 解压后进入此文件夹，双击 lupa.exe
+    ├── lupa.exe  + 运行时 DLL   # 双击即用
+    ├── data/                    # 含 schema.sql（首次建库模板）
+    └── lupa_data/               # 词典 dict.sqlite（解压即用，随包；notebook 首次运行自动创建）
 ```
 
 ### 功能
 
 - **查词**：前缀联想、英美音标、考试标签（柯林斯/牛津/词频）、词形变化、一键收藏、美/英朗读
 - **生词本**：统计条（总词数/新词/复习中/今日到期/遗忘）、点词条目弹出详情卡片
-- **复习**：到期队列逐卡作答，评分即时推进调度并写 revlog
+- **复习**：到期队列逐卡作答，评分即时推进调度并写 revlog；空格/点击**3D 翻面**显示释义
 - **导出**：Anki apkg + CSV（UTF-8 BOM），导出到数据目录 `exports/`
-- 明暗双主题（「纸感 + 玉色」，WCAG AA 对比度达标）
+- **设置**：外观 / 发音 / 复习 / 数据四组写回 `config.json`；数据目录可**运行时切换**（复制现有 / 新开空白），媒体缓存可统计与一键清理，生词本可一键备份
+- 明暗双主题（「纸感 + 玉色」，WCAG AA 对比度达标）；考试标签按类型配色（柯林斯/牛津/考纲/自定义）
 
 ### 快捷键
 
@@ -138,7 +140,7 @@ desktop/                   # Flutter Windows 桌面版
 ├── lib/theme/             # 「纸感 + 玉色」设计 token（明暗双主题）
 ├── lib/state/             # AppState 编排层
 ├── lib/widgets/           # AppShell 侧栏 + 词详情卡片等
-├── lib/pages/             # 查词 / 生词本 / 复习 / 导出 四页
+├── lib/pages/             # 查词 / 生词本 / 复习 / 导出 / 设置 五页
 └── tool/                  # apkg spike + verify_* 验证脚本 + Anki 导入对比
 ```
 

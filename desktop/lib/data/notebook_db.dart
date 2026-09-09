@@ -64,3 +64,66 @@ Future<String> ensureNotebookDb(String dbPath) async {
 /// 确保默认数据目录下的生词本库存在。返回库路径。
 Future<String> ensureNotebook([Directory? home]) async =>
     ensureNotebookDb(notebookDbPath(home));
+
+/// 打开生词本库（独立连接，函数内开、finally 关；与 repo._openNb 一致）。
+Future<Database> _open(String dbPath) async {
+  initDatabaseFactory();
+  return databaseFactory.openDatabase(p.absolute(dbPath),
+      options: OpenDatabaseOptions(singleInstance: false));
+}
+
+/// 媒体缓存统计（settings 发音组展示用）。音标表无 size_bytes，仅条数/命中。
+class MediaCacheStats {
+  final int audioCount;
+  final int audioBytes;
+  final int audioHits;
+  final int phoneticCount;
+  final int phoneticHits;
+  const MediaCacheStats({
+    required this.audioCount,
+    required this.audioBytes,
+    required this.audioHits,
+    required this.phoneticCount,
+    required this.phoneticHits,
+  });
+  int get totalCount => audioCount + phoneticCount;
+  int get totalHits => audioHits + phoneticHits;
+  int get totalBytes => audioBytes; // 目前仅音频表记录体积
+}
+
+/// 统计 media_cache（audio_cache + phonetic_cache）条数 / 体积 / 命中。
+Future<MediaCacheStats> mediaCacheStats(String nbPath) async {
+  await ensureNotebookDb(nbPath);
+  final con = await _open(nbPath);
+  try {
+    final a = (await con.rawQuery(
+        'SELECT COUNT(*) c, COALESCE(SUM(size_bytes),0) b, '
+        'COALESCE(SUM(hit_count),0) h FROM audio_cache'))
+        .first;
+    final p = (await con.rawQuery(
+        'SELECT COUNT(*) c, COALESCE(SUM(hit_count),0) h FROM phonetic_cache'))
+        .first;
+    return MediaCacheStats(
+      audioCount: a['c'] as int,
+      audioBytes: a['b'] as int,
+      audioHits: a['h'] as int,
+      phoneticCount: p['c'] as int,
+      phoneticHits: p['h'] as int,
+    );
+  } finally {
+    await con.close();
+  }
+}
+
+/// 清空 media_cache（audio_cache + phonetic_cache）。返回删除总条数。
+Future<int> clearMediaCache(String nbPath) async {
+  await ensureNotebookDb(nbPath);
+  final con = await _open(nbPath);
+  try {
+    final a = await con.rawDelete('DELETE FROM audio_cache');
+    final p = await con.rawDelete('DELETE FROM phonetic_cache');
+    return a + p;
+  } finally {
+    await con.close();
+  }
+}

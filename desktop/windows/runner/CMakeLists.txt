@@ -38,3 +38,17 @@ target_include_directories(${BINARY_NAME} PRIVATE "${CMAKE_SOURCE_DIR}")
 
 # Run the Flutter tool portions of the build. This must not be removed.
 add_dependencies(${BINARY_NAME} flutter_assemble)
+
+# 开发便利：构建后把发布期数据文件复制到输出旁，
+# 让 `flutter run -d windows` / `flutter build windows --release` 产出开箱即用的目录：
+#   dict.sqlite  → lupa_data/（便携默认词库，不入仓，缺失时静默跳过）
+#   schema.sql   → data/（首次建库模板，app 必需）
+add_custom_command(TARGET ${BINARY_NAME} POST_BUILD
+  COMMAND ${CMAKE_COMMAND}
+    "-DLUPA_DICT_SRC=${CMAKE_CURRENT_SOURCE_DIR}/../../../data/dict.sqlite"
+    "-DLUPA_DICT_DST=$<TARGET_FILE_DIR:${BINARY_NAME}>/lupa_data/dict.sqlite"
+    "-DLUPA_SCHEMA_SRC=${CMAKE_CURRENT_SOURCE_DIR}/../../lib/data/schema.sql"
+    "-DLUPA_SCHEMA_DST=$<TARGET_FILE_DIR:${BINARY_NAME}>/data/schema.sql"
+    -P "${CMAKE_CURRENT_SOURCE_DIR}/copy_data_files.cmake"
+  VERBATIM
+)

@@ -29,6 +29,15 @@ flutter analyze                 # 静态检查
 flutter build windows --release # 发布构建 → build/windows/x64/runner/Release/
 ```
 
+### 发布发行包
+```bash
+cd desktop
+flutter build windows --release   # 产出 build/windows/x64/runner/Release/
+# 发行 zip 统一放该构建输出目录，不在仓库根：
+#   desktop/build/windows/x64/runner/Release/Lupa-<version>-windows.zip
+```
+说明：构建已自动把 `data/schema.sql`（首次建库模板）与 `lupa_data/dict.sqlite`（词库，缺失时跳过）复制进输出目录，见 `desktop/windows/runner/copy_data_files.cmake`；打包时对 `Release/` 目录打 zip 即可，解压即用。
+
 ### 验证脚本（`desktop/tool/`，均走临时库、不污染真实数据）
 ```bash
 cd desktop
@@ -57,13 +66,14 @@ lupa export -f apkg|csv | lupa info | lupa version
 3. **媒体缓存键永远三段式**：`provider:word:format`（如 `youdao:abandon:mp3-us`），URL 单列字段。
 4. **apkg 稳定 guid**：`sha1("lupa::word")`，model/deck id 两版一致，混用不产生重复卡片。
 5. **数据目录**：`LUPA_HOME` 环境变量优先；未设时默认 `<exe>/lupa_data`（便携默认，解压即用）。与 Python CLI 靠 `LUPA_HOME` 共享同一份数据。
-6. **版本号两处同步**：`src/lupa/__init__.py` 的 `__version__` 与 `desktop/pubspec.yaml` 的 `version` 必须一致，统一为 `x.y.z`（当前 `0.1.0`）。
+6. **版本号两处同步**：`src/lupa/__init__.py` 的 `__version__` 与 `desktop/pubspec.yaml` 的 `version` 必须一致，统一为 `x.y.z`（当前 `0.2.0`）。
+7. **发行 zip 位置**：桌面发布 zip（`Lupa-<version>-windows.zip`）统一放在 `desktop/build/windows/x64/runner/Release/`（`flutter build windows --release` 的输出目录），不放在仓库根目录。
 
 ## 验证
 
 - **桌面端**：`flutter test`（主题/词形/外壳）+ `desktop/tool/verify_*.dart` 六组（headless，走真实词库 + 临时生词本库）。
 - **导出一致性**：`desktop/tool/anki_import_compare.py` 将 Python 与 Dart 两版 apkg 分别灌入全新 Anki collection（官方 `anki` 库），比对 guid / 字段 / model / deck 完全一致。
-- **CLI**：`lupa version` 输出 `Lupa v0.1.0`，`lupa info` 展示词库状态。
+- **CLI**：`lupa version` 输出 `Lupa v0.2.0`，`lupa info` 展示词库状态。
 
 ## 数据目录结构
 

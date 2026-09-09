@@ -31,9 +31,17 @@ class LupaColors {
   static const onJadeLight = Color(0xFFFFFFFF);
   static const onJadeDark = Color(0xFF0F2C26);
 
-  // ---- semantic ----
+  // ---- semantic（设计稿 3.1 语义色；深色取提亮值保对比度）----
   static const dangerLight = Color(0xFFB3452E);
   static const dangerDark = Color(0xFFE08D77);
+  static const successLight = Color(0xFF1F7A4D);
+  static const successDark = Color(0xFF5DBE8E);
+  static const warningLight = Color(0xFFA96008); // 柯林斯星级徽章
+  static const warningDark = Color(0xFFE0A34A);
+  static const violetLight = Color(0xFF5B4FCF); // 牛津 3000 徽章
+  static const violetDark = Color(0xFFA99BF0);
+  static const infoLight = Color(0xFF3C5BA9); // CSV / 提示
+  static const infoDark = Color(0xFF7FA3E0);
 }
 
 /// 词条标题用衬线（Windows 自带 Georgia）——全站唯一"装饰"。

@@ -8,6 +8,7 @@ import 'package:lupa/notebook/repo.dart';
 import 'package:lupa/notebook/scheduler.dart';
 import 'package:lupa/state/app_state.dart';
 import 'package:lupa/theme/lupa_theme.dart';
+import 'package:lupa/widgets/flip_card.dart';
 import 'package:lupa/widgets/word_bits.dart';
 
 class ReviewPage extends StatefulWidget {
@@ -85,8 +86,13 @@ class _ReviewPageState extends State<ReviewPage> {
       (_index < _queue.length) ? _queue[_index] : null;
 
   void _reveal() {
-    if (_current == null || _revealed) return;
+    final card = _current;
+    if (card == null || _revealed) return;
     setState(() => _revealed = true);
+    // 复习时自动朗读：翻面按默认口音播发音（settings 复习组开关）
+    if (widget.state.reviewAutoRead) {
+      widget.state.speak(card.word, widget.state.defaultAccent);
+    }
   }
 
   Future<void> _rate(int ease) async {
@@ -199,18 +205,12 @@ class _ReviewPageState extends State<ReviewPage> {
                   child: Text(_lastFeedback!, style: text.bodySmall),
                 ),
               const SizedBox(height: 32),
-              // ---- 卡片 ----
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(32),
-                decoration: BoxDecoration(
-                  color: scheme.surface,
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: Theme.of(context).dividerColor),
-                ),
-                child: _revealed
-                    ? _buildBack(context, card)
-                    : _buildFront(context, card),
+              // ---- 卡片（3D 翻面，空格/点击翻面）----
+              FlipCard(
+                showBack: _revealed,
+                onTap: _revealed ? null : _reveal,
+                front: _cardSurface(context, _buildFront(context, card)),
+                back: _cardSurface(context, _buildBack(context, card), back: true),
               ),
               const SizedBox(height: 20),
               // ---- 操作区 ----
@@ -223,9 +223,25 @@ class _ReviewPageState extends State<ReviewPage> {
     );
   }
 
+  /// 卡面外观（surface + 1px 描边 + 14px 圆角）。正面居中，背面顶部对齐且可滚动。
+  Widget _cardSurface(BuildContext context, Widget child, {bool back = false}) {
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.all(back ? 24 : 32),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Theme.of(context).dividerColor),
+      ),
+      child: back
+          ? SingleChildScrollView(child: child)
+          : Center(child: child),
+    );
+  }
+
   Widget _buildFront(BuildContext context, NotebookEntry card) {
     final text = Theme.of(context).textTheme;
-    return Column(children: [
+    return Column(mainAxisSize: MainAxisSize.min, children: [
       Text(card.word,
           textAlign: TextAlign.center,
           style: TextStyle(
@@ -240,6 +256,7 @@ class _ReviewPageState extends State<ReviewPage> {
   Widget _buildBack(BuildContext context, NotebookEntry card) {
     final text = Theme.of(context).textTheme;
     return Column(
+      mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Center(

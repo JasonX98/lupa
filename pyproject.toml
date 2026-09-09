@@ -1,6 +1,6 @@
 [project]
 name = "lupa"
-version = "0.1.0"
+version = "0.2.0"
 description = "Lupa / 璐帕 — 看清单词，留住单词，归你所有 (离线英语词典 CLI)"
 readme = "README.md"
 requires-python = ">=3.13"
