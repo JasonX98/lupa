@@ -31,6 +31,7 @@ class _ReviewPageState extends State<ReviewPage> {
   String? _lastFeedback;
   bool _submitting = false;
   final _focus = FocusNode();
+  int _reloadSeq = 0; // 并发重载序号：只允许最后一次发起的重载落盘
 
   @override
   void initState() {
@@ -65,9 +66,13 @@ class _ReviewPageState extends State<ReviewPage> {
   }
 
   Future<void> _reload() async {
+    // 并发重载防抖：早发起但晚返回的请求不得覆盖新状态。
+    // 否则「刚切到本页就按空格翻面」会被上一次（如启动时那次）重载的完成
+    // 把 _revealed 清回 false，用户看到翻面失效。
+    final seq = ++_reloadSeq;
     setState(() => _loading = true);
     await widget.state.refresh();
-    if (!mounted) return;
+    if (!mounted || seq != _reloadSeq) return;
     setState(() {
       _queue = widget.state.due;
       _index = 0;
@@ -127,6 +132,9 @@ class _ReviewPageState extends State<ReviewPage> {
     if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
       return KeyEventResult.ignored;
     }
+    // 纵深防御：非当前页不得因按键改变状态或写库。外壳在切页时会把焦点收回自己
+    // （测试 4.6 覆盖），这里再兜一层，避免页面被挪出 IndexedStack 或新增切换路径后缺陷复活。
+    if (!widget.isActive) return KeyEventResult.ignored;
     if (_current == null) return KeyEventResult.ignored;
     if (!_revealed) {
       if (event.logicalKey == LogicalKeyboardKey.space) {
@@ -158,7 +166,9 @@ class _ReviewPageState extends State<ReviewPage> {
     return Focus(
       focusNode: _focus,
       onKeyEvent: _onKey,
-      autofocus: true,
+      // 不加 autofocus：本页在 IndexedStack 里常驻，autofocus 会让**隐藏页**也抢焦点
+      //（`_doRequestFocus` 只检查 canRequestFocus，拦不住程序化 requestFocus）。
+      // 焦点由 initState / didUpdateWidget 在 isActive 时显式请求。
       child: _loading
           ? const Center(child: CircularProgressIndicator(strokeWidth: 2.4))
           : _current == null

@@ -1,5 +1,7 @@
 // Lupa 应用外壳：左侧导航 + 页面路由 + 全局快捷键。
 // 键盘优先：Ctrl+F 查词 / Ctrl+B 生词本 / Ctrl+R 复习 / Ctrl+I 短语集 / Ctrl+E 导出。
+// 焦点归属：页面用 IndexedStack 常驻，因此切页时由外壳显式收回焦点
+//（隐藏页若继续持焦，空格/数字键会落到看不见的卡片上；详见 _go 与复习页注释）。
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -22,19 +24,81 @@ class AppShell extends StatefulWidget {
   State<AppShell> createState() => _AppShellState();
 }
 
+/// 侧栏导航与快捷键的单点定义：提示文案与 bindings 都从 [activator] 派生，
+/// 避免「侧栏写着 Ctrl+F、实际绑的是别的键」这种两份手写数据漂移。
+typedef _NavEntry = ({
+  IconData icon,
+  String label,
+  ShortcutActivator activator,
+  int page,
+});
+
 class _AppShellState extends State<AppShell> {
   // 0=查词 1=生词本 2=复习 3=短语集 4=短语复习 5=导出 6=设置
   int _page = 0;
 
-  static const _items = [
-    (Icons.search, '查词', 'Ctrl+F', 0),
-    (Icons.auto_stories_outlined, '生词本', 'Ctrl+B', 1),
-    (Icons.style_outlined, '单词复习', 'Ctrl+R', 2),
-    (Icons.forum_outlined, '短语集', 'Ctrl+I', 3),
-    (Icons.ios_share, '导出', 'Ctrl+E', 5),
+  // 外壳焦点：切页时把焦点收回这里，保证 CallbackShortcuts 的继承树上始终有人持焦
+  //（它只在「其后代持有焦点」时才拦按键）。
+  final _shellFocus = FocusNode(debugLabel: 'AppShell');
+
+  static const _nav = <_NavEntry>[
+    (
+      icon: Icons.search,
+      label: '查词',
+      activator: SingleActivator(LogicalKeyboardKey.keyF, control: true),
+      page: 0,
+    ),
+    (
+      icon: Icons.auto_stories_outlined,
+      label: '生词本',
+      activator: SingleActivator(LogicalKeyboardKey.keyB, control: true),
+      page: 1,
+    ),
+    (
+      icon: Icons.style_outlined,
+      label: '单词复习',
+      activator: SingleActivator(LogicalKeyboardKey.keyR, control: true),
+      page: 2,
+    ),
+    (
+      icon: Icons.forum_outlined,
+      label: '短语集',
+      activator: SingleActivator(LogicalKeyboardKey.keyI, control: true),
+      page: 3,
+    ),
+    (
+      icon: Icons.ios_share,
+      label: '导出',
+      activator: SingleActivator(LogicalKeyboardKey.keyE, control: true),
+      page: 5,
+    ),
   ];
 
-  void _go(int i) => setState(() => _page = i);
+  /// 提示文案由 activator 派生（如 `Ctrl+F`），不再单独手写。
+  static String _hintOf(ShortcutActivator a) {
+    if (a is! SingleActivator) return '';
+    final label = a.trigger.keyLabel;
+    final key = label.length == 1 ? label.toUpperCase() : label;
+    return '${a.control ? 'Ctrl+' : ''}$key';
+  }
+
+  @override
+  void dispose() {
+    _shellFocus.dispose();
+    super.dispose();
+  }
+
+  void _go(int i) {
+    setState(() => _page = i);
+    // 先把焦点收回外壳：页面在 IndexedStack 里常驻，离开的页不会自动交还焦点，
+    // 不收回来则隐藏页继续吃键（空格/数字键落到看不见的卡片上）。
+    // 需要自身焦点的页（搜索框 / 复习页）在自己的 didUpdateWidget 里
+    // 随后把焦点要走，它们注册的回调晚于本回调。
+    _shellFocus.requestFocus();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && !_shellFocus.hasFocus) _shellFocus.requestFocus();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -52,14 +116,12 @@ class _AppShellState extends State<AppShell> {
       SettingsPage(state: widget.state),
     ];
     return CallbackShortcuts(
+      // 绑定与侧栏提示同源：见 _nav
       bindings: {
-        const SingleActivator(LogicalKeyboardKey.keyF, control: true): () => _go(0),
-        const SingleActivator(LogicalKeyboardKey.keyB, control: true): () => _go(1),
-        const SingleActivator(LogicalKeyboardKey.keyR, control: true): () => _go(2),
-        const SingleActivator(LogicalKeyboardKey.keyI, control: true): () => _go(3),
-        const SingleActivator(LogicalKeyboardKey.keyE, control: true): () => _go(5),
+        for (final e in _nav) e.activator: () => _go(e.page),
       },
       child: Focus(
+        focusNode: _shellFocus,
         autofocus: true,
         child: Scaffold(
           body: Row(
@@ -67,7 +129,16 @@ class _AppShellState extends State<AppShell> {
             children: [
               _buildSidebar(context),
               VerticalDivider(width: 1, thickness: 1, color: Theme.of(context).dividerColor),
-              Expanded(child: IndexedStack(index: _page, children: pages)),
+              Expanded(
+                // 页面常驻（maintainState + maintainInteractivity），隐藏页的控件在控件树上
+                // 依然存在——焦点安全靠 _go 收回焦点 + 页面自身的 isActive 守卫，
+                // 而不是靠隐藏页不可聚焦（曾用 ExcludeFocus，实测它拦不住程序化
+                // requestFocus，已按反假测试结论移除）。
+                child: IndexedStack(
+                  index: _page,
+                  children: pages,
+                ),
+              ),
             ],
           ),
         ),
@@ -81,8 +152,8 @@ class _AppShellState extends State<AppShell> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     Widget navItem(int i) {
-      final (icon, label, shortcut, target) = _items[i];
-      final selected = _page == target;
+      final e = _nav[i];
+      final selected = _page == e.page;
       return Padding(
         padding: const EdgeInsets.symmetric(horizontal: 10),
         child: Material(
@@ -92,21 +163,21 @@ class _AppShellState extends State<AppShell> {
           borderRadius: BorderRadius.circular(8),
           child: InkWell(
             borderRadius: BorderRadius.circular(8),
-            onTap: () => _go(target),
+            onTap: () => _go(e.page),
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
               child: Row(children: [
-                Icon(icon, size: 19,
+                Icon(e.icon, size: 19,
                     color: selected ? scheme.primary : scheme.outline),
                 const SizedBox(width: 10),
                 Expanded(
-                  child: Text(label,
+                  child: Text(e.label,
                       style: TextStyle(
                           fontSize: 13.5,
                           fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
                           color: selected ? scheme.primary : text.bodyMedium!.color)),
                 ),
-                Text(shortcut,
+                Text(_hintOf(e.activator),
                     style: TextStyle(
                         fontSize: 10.5,
                         color: selected ? scheme.primary : scheme.outline)),
@@ -143,7 +214,7 @@ class _AppShellState extends State<AppShell> {
             child: Text('看清词，留住词', style: text.labelSmall),
           ),
           const SizedBox(height: 20),
-          for (var i = 0; i < _items.length; i++) ...[
+          for (var i = 0; i < _nav.length; i++) ...[
             navItem(i),
             const SizedBox(height: 4),
           ],
