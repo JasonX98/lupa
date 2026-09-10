@@ -152,9 +152,12 @@ class AppState extends ChangeNotifier {
     await player.play(BytesSource(Uint8List.fromList(audio.blob)));
   }
 
-  /// 复习评分。返回 (nextIvlDays, nextDueUnixSeconds)。
-  Future<(int, int)> answer(int cardId, int ease) =>
+  /// 复习评分。返回回执（含撤销所需的评分前快照）。
+  Future<AnswerReceipt> answer(int cardId, int ease) =>
       answerCard(nbPath, cardId, ease);
+
+  /// 撤销一次评分（按回执恢复；只允许该卡最新一条历史）。
+  Future<bool> undoAnswer(AnswerReceipt r) => undoAnswerCard(nbPath, r);
 
   // ---- 导出 ----
 
@@ -202,9 +205,13 @@ class AppState extends ChangeNotifier {
     return ok;
   }
 
-  /// 短语复习评分。返回 (nextIvlDays, nextDueUnixSeconds)。
-  Future<(int, int)> answerPhraseCard(int id, int ease) =>
+  /// 短语复习评分。返回回执（含撤销所需的评分前快照）。
+  Future<phrase_repo.PhraseAnswerReceipt> answerPhraseCard(int id, int ease) =>
       phrase_repo.answerPhrase(nbPath, id, ease);
+
+  /// 撤销一次短语评分。
+  Future<bool> undoAnswerPhrase(phrase_repo.PhraseAnswerReceipt r) =>
+      phrase_repo.undoAnswerPhrase(nbPath, r);
 
   Future<phrase_apkg_export.PhraseExportReport> exportPhraseApkgTo(
           String path) =>

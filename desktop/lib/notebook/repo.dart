@@ -248,49 +248,121 @@ Future<List<NotebookEntry>> dueWords(String nbPath, {int limit = 20}) async {
   }
 }
 
-/// 对一张卡打分（1-4），推进调度。返回 (nextIvl, nextDue)。同时写入 revlog。
-Future<(int, int)> answerCard(String nbPath, int cardId, int ease) async {
+/// 一次评分的回执：撤销所需的全部信息（历史行 id + 评分前快照 + 本次结果）。
+///
+/// 撤销必须按回执恢复「绝对值」，不能事后推断：`revlog` 里没有 `due`/`reps`，
+/// `time` 恒为 0，`type` 也把 learn/review 压成了 0/1。
+class AnswerReceipt {
+  final int cardId;
+  final int revlogId; // revlog 行 id：撤销时精确删除这一条
+  final int ease; // 本次评分：界面据此回退「记得/忘了」计数
+  final int prevType;
+  final int prevDue;
+  final int prevIvl;
+  final int prevReps;
+  final int prevLapses;
+  final int nextIvl;
+  final int nextDue;
+
+  const AnswerReceipt({
+    required this.cardId,
+    required this.revlogId,
+    required this.ease,
+    required this.prevType,
+    required this.prevDue,
+    required this.prevIvl,
+    required this.prevReps,
+    required this.prevLapses,
+    required this.nextIvl,
+    required this.nextDue,
+  });
+}
+
+/// 对一张卡打分（1-4），推进调度，返回回执。
+///
+/// 卡片更新与 revlog 追加在同一事务内完成：撤销以「两者都成功」为前提。
+Future<AnswerReceipt> answerCard(String nbPath, int cardId, int ease) async {
   await ensureNotebookDb(nbPath);
   final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
   final con = await _openNb(nbPath);
   try {
-    final cardRows = await con.rawQuery(
-      'SELECT ivl, reps, type FROM cards WHERE id = ?',
-      [cardId],
-    );
-    if (cardRows.isEmpty) {
-      throw StateError('card 不存在: $cardId');
-    }
-    final card = cardRows.first;
-    final lastIvl = card['ivl'] as int;
-    final (nextIvl, nextDue) = dueTimestamp(lastIvl, ease, now: now);
-    final newType = ease >= 2 ? cardReview : cardLearn;
+    return await con.transaction((txn) async {
+      final cardRows = await txn.rawQuery(
+        'SELECT ivl, due, reps, lapses, type FROM cards WHERE id = ?',
+        [cardId],
+      );
+      if (cardRows.isEmpty) {
+        throw StateError('card 不存在: $cardId');
+      }
+      final card = cardRows.first;
+      final lastIvl = card['ivl'] as int;
+      final (nextIvl, nextDue) = dueTimestamp(lastIvl, ease, now: now);
+      final newType = ease >= 2 ? cardReview : cardLearn;
 
-    await con.rawUpdate(
-      'UPDATE cards SET ivl = ?, due = ?, type = ?, reps = reps + 1, '
-      'lapses = lapses + ?, mod = ? WHERE id = ?',
-      [
-        nextIvl,
-        nextDue,
-        newType,
-        ease < 2 ? 1 : 0,
-        now,
-        cardId,
-      ],
-    );
-    await con.rawInsert(
-      'INSERT INTO revlog (r_id, cid, usn, ease, ivl, last_ivl, factor, time, type) '
-      'VALUES (?, ?, 0, ?, ?, ?, 0, 0, ?)',
-      [
-        _genAnkiId(),
-        cardId,
-        ease,
-        nextIvl,
-        lastIvl,
-        (card['type'] as int) == 0 ? 0 : 1,
-      ],
-    );
-    return (nextIvl, nextDue);
+      await txn.rawUpdate(
+        'UPDATE cards SET ivl = ?, due = ?, type = ?, reps = reps + 1, '
+        'lapses = lapses + ?, mod = ? WHERE id = ?',
+        [nextIvl, nextDue, newType, ease < 2 ? 1 : 0, now, cardId],
+      );
+      final revlogId = await txn.rawInsert(
+        'INSERT INTO revlog (r_id, cid, usn, ease, ivl, last_ivl, factor, time, type) '
+        'VALUES (?, ?, 0, ?, ?, ?, 0, 0, ?)',
+        [
+          _genAnkiId(),
+          cardId,
+          ease,
+          nextIvl,
+          lastIvl,
+          (card['type'] as int) == 0 ? 0 : 1,
+        ],
+      );
+      return AnswerReceipt(
+        cardId: cardId,
+        revlogId: revlogId,
+        ease: ease,
+        prevType: card['type'] as int,
+        prevDue: card['due'] as int,
+        prevIvl: lastIvl,
+        prevReps: card['reps'] as int,
+        prevLapses: card['lapses'] as int,
+        nextIvl: nextIvl,
+        nextDue: nextDue,
+      );
+    });
+  } finally {
+    await con.close();
+  }
+}
+
+/// 撤销一次评分：按回执恢复卡片状态并删除该次历史记录（单事务）。
+///
+/// 只允许撤销该卡**最新**一条历史：回执对应的行已不是最新时拒绝（返回 false），
+/// 防止上层拿过期回执删掉中间记录。「只能撤一次」由界面单槽保证。
+Future<bool> undoAnswerCard(String nbPath, AnswerReceipt r) async {
+  await ensureNotebookDb(nbPath);
+  final con = await _openNb(nbPath);
+  try {
+    return await con.transaction((txn) async {
+      final cardRows =
+          await txn.rawQuery('SELECT id FROM cards WHERE id = ?', [r.cardId]);
+      if (cardRows.isEmpty) return false; // 卡已不存在：无副作用
+      final latest = (await txn.rawQuery(
+              'SELECT MAX(id) AS m FROM revlog WHERE cid = ?', [r.cardId]))
+          .first['m'];
+      if (latest is! int || latest != r.revlogId) return false; // 回执过期
+      final deleted =
+          await txn.rawDelete('DELETE FROM revlog WHERE id = ?', [r.revlogId]);
+      if (deleted != 1) return false;
+      final updated = await txn.rawUpdate(
+        'UPDATE cards SET ivl = ?, due = ?, type = ?, reps = ?, lapses = ? '
+        'WHERE id = ?',
+        [r.prevIvl, r.prevDue, r.prevType, r.prevReps, r.prevLapses, r.cardId],
+      );
+      if (updated != 1) {
+        throw StateError('撤回卡片失败: ${r.cardId}'); // 抛错→事务回滚，不留半成品
+      }
+      return true;
+    });
   } finally {
     await con.close();
   }

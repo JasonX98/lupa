@@ -106,29 +106,29 @@ Future<void> main() async {
   check('4.3 dueWords 含新卡', cards.length == 2, detail: cards.length);
   final card = cards.where((c) => c.word == 'abandon').first;
 
-  final (nextIvl, nextDue) = await answerCard(nbPath, card.cardId, easeGood);
-  check('4.3 新卡 Good => ivl=3', nextIvl == 3, detail: nextIvl);
+  final r1 = await answerCard(nbPath, card.cardId, easeGood);
+  check('4.3 新卡 Good => ivl=3', r1.nextIvl == 3, detail: r1.nextIvl);
 
   final after = await listWords(nbPath, includeSuspended: true);
   final a = after.where((c) => c.word == 'abandon').first;
   check('4.3 卡片 type=Review(2)', a.cardType == 2, detail: a.cardType);
-  check('4.3 卡片 due 已更新', a.due == nextDue);
+  check('4.3 卡片 due 已更新', a.due == r1.nextDue);
   check('4.3 卡片 reps=1 lapses=0', a.reps == 1 && a.lapses == 0);
 
   // 忘了：回退第一档且 lapses+1
-  final (ivl2, _) = await answerCard(nbPath, a.cardId, easeAgain);
+  final r2 = await answerCard(nbPath, a.cardId, easeAgain);
   final after2 = await listWords(nbPath, includeSuspended: true);
   final a2 = after2.where((c) => c.word == 'abandon').first;
-  check('4.3 忘了 => ivl=1', ivl2 == 1 && a2.ivl == 1);
+  check('4.3 忘了 => ivl=1', r2.nextIvl == 1 && a2.ivl == 1);
   check('4.3 忘了 => lapses=1 type=Learn(1)', a2.lapses == 1 && a2.cardType == 1);
 
   // 分级推进落到真实卡片上：记得前进一档、模糊保持、简单前进两档
-  final (ivl3, _) = await answerCard(nbPath, a.cardId, easeGood);
-  check('4.3 间隔 1 记得 => 3', ivl3 == 3, detail: ivl3);
-  final (ivl4, _) = await answerCard(nbPath, a.cardId, easeHard);
-  check('4.3 间隔 3 模糊 => 3 保持当前档', ivl4 == 3, detail: ivl4);
-  final (ivl5, _) = await answerCard(nbPath, a.cardId, easeEasy);
-  check('4.3 间隔 3 简单 => 15 前进两档', ivl5 == 15, detail: ivl5);
+  final r3 = await answerCard(nbPath, a.cardId, easeGood);
+  check('4.3 间隔 1 记得 => 3', r3.nextIvl == 3, detail: r3.nextIvl);
+  final r4 = await answerCard(nbPath, a.cardId, easeHard);
+  check('4.3 间隔 3 模糊 => 3 保持当前档', r4.nextIvl == 3, detail: r4.nextIvl);
+  final r5 = await answerCard(nbPath, a.cardId, easeEasy);
+  check('4.3 间隔 3 简单 => 15 前进两档', r5.nextIvl == 15, detail: r5.nextIvl);
 
   // revlog 每次答题一条
   final con = await databaseFactory.openDatabase(nbPath);
@@ -136,6 +136,43 @@ Future<void> main() async {
       (await con.rawQuery('SELECT COUNT(*) AS c FROM revlog')).first.values.first as int;
   await con.close();
   check('4.3 revlog 记录=5', revlogCount == 5, detail: revlogCount);
+
+  // ---------- 4.4 撤销最近一次评分 ----------
+  final beforeUndo =
+      (await listWords(nbPath, includeSuspended: true)).where((c) => c.word == 'abandon').first;
+  check('4.4 撤销前 ivl=15', beforeUndo.ivl == 15, detail: beforeUndo.ivl);
+
+  check('4.4 撤销成功', await undoAnswerCard(nbPath, r5));
+  final afterUndo =
+      (await listWords(nbPath, includeSuspended: true)).where((c) => c.word == 'abandon').first;
+  check('4.4 撤销后 ivl 回到 3', afterUndo.ivl == 3, detail: afterUndo.ivl);
+  check('4.4 撤销后 reps 回到 4 且 lapses 不变',
+      afterUndo.reps == 4 && afterUndo.lapses == 1,
+      detail: 'reps=${afterUndo.reps} lapses=${afterUndo.lapses}');
+  check('4.4 撤销后 type 回到 Review(2)', afterUndo.cardType == 2, detail: afterUndo.cardType);
+
+  final conU = await databaseFactory.openDatabase(nbPath);
+  final revlogAfterUndo =
+      (await conU.rawQuery('SELECT COUNT(*) AS c FROM revlog')).first.values.first as int;
+  await conU.close();
+  check('4.4 撤销后 revlog=4', revlogAfterUndo == 4, detail: revlogAfterUndo);
+
+  // 不是最新一条的回执（r3/r5 已完成回退）必须被拒且无副作用
+  check('4.4 过期回执被拒', !(await undoAnswerCard(nbPath, r3)));
+  check('4.4 重复撤销被拒', !(await undoAnswerCard(nbPath, r5)));
+  final afterReject =
+      (await listWords(nbPath, includeSuspended: true)).where((c) => c.word == 'abandon').first;
+  check('4.4 被拒后状态不变',
+      afterReject.ivl == 3 && afterReject.reps == 4, detail: afterReject.ivl);
+
+  // 撤销后可正常重新评分（只保留这一条新历史）
+  final r6 = await answerCard(nbPath, afterReject.cardId, easeEasy);
+  check('4.4 撤销后可重新评分 => ivl=15', r6.nextIvl == 15, detail: r6.nextIvl);
+  final conR = await databaseFactory.openDatabase(nbPath);
+  final revlogAfterRedo =
+      (await conR.rawQuery('SELECT COUNT(*) AS c FROM revlog')).first.values.first as int;
+  await conR.close();
+  check('4.4 重新评分后 revlog=5', revlogAfterRedo == 5, detail: revlogAfterRedo);
 
   await tmp.delete(recursive: true);
   stdout.writeln(failures == 0 ? 'ALL PASS' : 'FAILURES: $failures');

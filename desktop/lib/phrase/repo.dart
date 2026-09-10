@@ -362,33 +362,114 @@ Future<List<PhraseEntry>> duePhrases(String nbPath, {int limit = 20}) async {
 
 /// 对一条短语评分（1-4），推进调度并写入 phrase_review_log。
 /// 返回 (nextIvl, nextDue)。
-Future<(int, int)> answerPhrase(String nbPath, int id, int ease) async {
+/// 一次短语评分的回执：撤销所需的全部信息（历史行 id + 评分前快照 + 本次结果）。
+class PhraseAnswerReceipt {
+  final int phraseId;
+  final int logId; // phrase_review_log 行 id：撤销时精确删除这一条
+  final int ease; // 本次评分：界面据此回退「记得/忘了」计数
+  final int prevState;
+  final int prevDue;
+  final int prevIvl;
+  final int prevReps;
+  final int prevLapses;
+  final int nextIvl;
+  final int nextDue;
+
+  const PhraseAnswerReceipt({
+    required this.phraseId,
+    required this.logId,
+    required this.ease,
+    required this.prevState,
+    required this.prevDue,
+    required this.prevIvl,
+    required this.prevReps,
+    required this.prevLapses,
+    required this.nextIvl,
+    required this.nextDue,
+  });
+}
+
+/// 对一条短语打分（1-4），推进调度，返回回执；状态与历史在同一事务内写入。
+Future<PhraseAnswerReceipt> answerPhrase(String nbPath, int id, int ease) async {
   await ensureNotebookDb(nbPath);
   final now = _nowSec();
   final con = await _open(nbPath);
   try {
-    final rows = await con.rawQuery(
-      'SELECT ivl FROM phrases WHERE id = ?',
-      [id],
-    );
-    if (rows.isEmpty) throw PhraseNotFoundError(id);
-    final lastIvl = rows.first['ivl'] as int;
-    final (nextIvl, nextDue) = dueTimestamp(lastIvl, ease, now: now);
-    final newState = ease >= 2 ? phraseReview : phraseLearn;
+    return await con.transaction((txn) async {
+      final rows = await txn.rawQuery(
+        'SELECT state, due, ivl, reps, lapses FROM phrases WHERE id = ?',
+        [id],
+      );
+      if (rows.isEmpty) throw PhraseNotFoundError(id);
+      final row = rows.first;
+      final lastIvl = row['ivl'] as int;
+      final (nextIvl, nextDue) = dueTimestamp(lastIvl, ease, now: now);
+      final newState = ease >= 2 ? phraseReview : phraseLearn;
 
-    await con.transaction((txn) async {
       await txn.rawUpdate(
         'UPDATE phrases SET ivl = ?, due = ?, state = ?, reps = reps + 1, '
         'lapses = lapses + ? WHERE id = ?',
         [nextIvl, nextDue, newState, ease < 2 ? 1 : 0, id],
       );
-      await txn.rawInsert(
+      final logId = await txn.rawInsert(
         'INSERT INTO phrase_review_log (phrase_id, ease, ivl, last_ivl, time, ts) '
         'VALUES (?, ?, ?, ?, 0, ?)',
         [id, ease, nextIvl, lastIvl, now],
       );
+      return PhraseAnswerReceipt(
+        phraseId: id,
+        logId: logId,
+        ease: ease,
+        prevState: row['state'] as int,
+        prevDue: row['due'] as int,
+        prevIvl: lastIvl,
+        prevReps: row['reps'] as int,
+        prevLapses: row['lapses'] as int,
+        nextIvl: nextIvl,
+        nextDue: nextDue,
+      );
     });
-    return (nextIvl, nextDue);
+  } finally {
+    await con.close();
+  }
+}
+
+/// 撤销一次短语评分：按回执恢复状态并删除该次历史记录（单事务）。
+///
+/// 只允许撤销该短语**最新**一条历史；回执过期时返回 false 且无副作用。
+Future<bool> undoAnswerPhrase(String nbPath, PhraseAnswerReceipt r) async {
+  await ensureNotebookDb(nbPath);
+  final con = await _open(nbPath);
+  try {
+    return await con.transaction((txn) async {
+      final rows =
+          await txn.rawQuery('SELECT id FROM phrases WHERE id = ?', [r.phraseId]);
+      if (rows.isEmpty) return false; // 短语已不存在：无副作用
+      final latest = (await txn.rawQuery(
+              'SELECT MAX(id) AS m FROM phrase_review_log WHERE phrase_id = ?',
+              [r.phraseId]))
+          .first['m'];
+      if (latest is! int || latest != r.logId) return false; // 回执过期
+      final deleted = await txn
+          .rawDelete('DELETE FROM phrase_review_log WHERE id = ?', [r.logId]);
+      if (deleted != 1) return false;
+      final updated = await txn.rawUpdate(
+        'UPDATE phrases SET ivl = ?, due = ?, state = ?, reps = ?, lapses = ? '
+        'WHERE id = ?',
+        [
+          r.prevIvl,
+          r.prevDue,
+          r.prevState,
+          r.prevReps,
+          r.prevLapses,
+          r.phraseId,
+        ],
+      );
+      if (updated != 1) {
+        throw StateError('撤回短语失败: ${r.phraseId}'); // 抛错→事务回滚
+      }
+      return true;
+    });
   } finally {
     await con.close();
   }

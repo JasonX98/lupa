@@ -82,8 +82,8 @@ void main() {
         const PhraseInput(phrase: 'once in a blue moon', meaning: '千载难逢'));
 
     expect(state.phraseDue.length, 1);
-    final (ivl, _) = await state.answerPhraseCard(id, 3);
-    expect(ivl, 3); // 新短语记得：按「即将进入第一档」起步再前进一档
+    final rec = await state.answerPhraseCard(id, 3);
+    expect(rec.nextIvl, 3); // 新短语记得：按「即将进入第一档」起步再前进一档
 
     await state.refresh();
     final e = state.phraseEntries.first;

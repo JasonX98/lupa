@@ -116,12 +116,12 @@ Future<void> main() async {
   check('2.4 nextInterval(0, Easy)=7 新短语简单进第三档',
       nextInterval(0, easeEasy) == 7);
 
-  final (ivl1, _) = await answerPhrase(nbPath, id1, easeGood);
-  check('2.4 新短语 Good => ivl=3（与 1 天短语同档）', ivl1 == 3, detail: ivl1);
-  final (ivl2, _) = await answerPhrase(nbPath, id1, easeGood);
-  check('2.4 间隔 3 Good => 7', ivl2 == 7, detail: ivl2);
-  final (ivl3, _) = await answerPhrase(nbPath, id1, easeAgain);
-  check('2.4 答错回第一档 => 1', ivl3 == 1, detail: ivl3);
+  final q1 = await answerPhrase(nbPath, id1, easeGood);
+  check('2.4 新短语 Good => ivl=3（与 1 天短语同档）', q1.nextIvl == 3, detail: q1.nextIvl);
+  final q2 = await answerPhrase(nbPath, id1, easeGood);
+  check('2.4 间隔 3 Good => 7', q2.nextIvl == 7, detail: q2.nextIvl);
+  final q3 = await answerPhrase(nbPath, id1, easeAgain);
+  check('2.4 答错回第一档 => 1', q3.nextIvl == 1, detail: q3.nextIvl);
   final after = await getPhrase(nbPath, id1);
   check('2.4 答错 lapses=1', after!.lapses == 1, detail: after.lapses);
 
@@ -233,16 +233,40 @@ Future<void> main() async {
     nbPath,
     const PhraseInput(phrase: 'break the ice', meaning: '打破僵局'),
   );
-  final (g1, _) = await answerPhrase(nbPath, gradedId, easeGood);
-  check('2.5 新短语 记得 => 3（与 1 天短语同档）', g1 == 3, detail: g1);
-  final (g2, _) = await answerPhrase(nbPath, gradedId, easeGood);
-  check('2.5 间隔 3 记得 => 7', g2 == 7, detail: g2);
-  final (g3, _) = await answerPhrase(nbPath, gradedId, easeHard);
-  check('2.5 间隔 7 模糊 => 7 保持当前档', g3 == 7, detail: g3);
-  final (g4, _) = await answerPhrase(nbPath, gradedId, easeEasy);
-  check('2.5 间隔 7 简单 => 30 前进两档', g4 == 30, detail: g4);
-  final (g5, _) = await answerPhrase(nbPath, gradedId, easeAgain);
-  check('2.5 忘了 => 1 回第一档', g5 == 1, detail: g5);
+  final q4 = await answerPhrase(nbPath, gradedId, easeGood);
+  check('2.5 新短语 记得 => 3（与 1 天短语同档）', q4.nextIvl == 3, detail: q4.nextIvl);
+  final q5 = await answerPhrase(nbPath, gradedId, easeGood);
+  check('2.5 间隔 3 记得 => 7', q5.nextIvl == 7, detail: q5.nextIvl);
+  final q6 = await answerPhrase(nbPath, gradedId, easeHard);
+  check('2.5 间隔 7 模糊 => 7 保持当前档', q6.nextIvl == 7, detail: q6.nextIvl);
+  final q7 = await answerPhrase(nbPath, gradedId, easeEasy);
+  check('2.5 间隔 7 简单 => 30 前进两档', q7.nextIvl == 30, detail: q7.nextIvl);
+  final q8 = await answerPhrase(nbPath, gradedId, easeAgain);
+  check('2.5 忘了 => 1 回第一档', q8.nextIvl == 1, detail: q8.nextIvl);
+
+  // ================= 2.5b 撤销最近一次短语评分 =================
+  Future<int> logCountOf(int pid) async {
+    final c = await databaseFactory.openDatabase(nbPath,
+        options: OpenDatabaseOptions(singleInstance: false));
+    final n = (await c.rawQuery(
+            'SELECT COUNT(*) c FROM phrase_review_log WHERE phrase_id = ?', [pid]))
+        .first['c'] as int;
+    await c.close();
+    return n;
+  }
+
+  check('2.5b 撤销前 5 条历史', await logCountOf(gradedId) == 5);
+  check('2.5b 撤销成功', await undoAnswerPhrase(nbPath, q8));
+  final afterUndoPhrase = await getPhrase(nbPath, gradedId);
+  check('2.5b 撤销后 ivl 回到 30',
+      afterUndoPhrase!.ivl == 30, detail: afterUndoPhrase.ivl);
+  check('2.5b 撤销后 reps 回到 4',
+      afterUndoPhrase.reps == 4, detail: afterUndoPhrase.reps);
+  check('2.5b 撤销后历史回到 4 条', await logCountOf(gradedId) == 4);
+  // 不是最新一条 / 已回退过的回执 → 拒绝且无副作用
+  check('2.5b 过期回执被拒', !(await undoAnswerPhrase(nbPath, q6)));
+  check('2.5b 重复撤销被拒', !(await undoAnswerPhrase(nbPath, q8)));
+  check('2.5b 被拒后历史仍为 4 条', await logCountOf(gradedId) == 4);
 
   // ================= 1.2 旧库迁移（v1 -> v2）=================
   final tmp2 = await Directory.systemTemp.createTemp('lupa_phrase_mig_');

@@ -32,6 +32,8 @@ class _ReviewPageState extends State<ReviewPage> {
   bool _submitting = false;
   final _focus = FocusNode();
   int _reloadSeq = 0; // 并发重载序号：只允许最后一次发起的重载落盘
+  // 撤销单槽：只保留最近一次评分的回执（0 键撤销用），重载队列即清空
+  AnswerReceipt? _last;
 
   @override
   void initState() {
@@ -80,6 +82,7 @@ class _ReviewPageState extends State<ReviewPage> {
       _goodCount = 0;
       _againCount = 0;
       _lastFeedback = null;
+      _last = null; // 队列重载 = 新一轮，旧回执不再可撤（不跨会话）
       _loading = false;
     });
     // 音标预热：与查词页同源（在线缓存优先），卡背面渐进增强
@@ -105,7 +108,8 @@ class _ReviewPageState extends State<ReviewPage> {
     if (card == null || _submitting || !_revealed) return;
     setState(() => _submitting = true);
     try {
-      final (nextIvl, _) = await widget.state.answer(card.cardId, ease);
+      final rec = await widget.state.answer(card.cardId, ease);
+        _last = rec; // 单槽：只留最近一次，供 0 键撤销
       if (!mounted) return;
       setState(() {
         if (ease >= 2) {
@@ -114,7 +118,7 @@ class _ReviewPageState extends State<ReviewPage> {
           _againCount++;
         }
         _lastFeedback = '「${card.word}」${
-            ease == 1 ? '重新来过' : '下次 $nextIvl 天后见'}';
+            ease == 1 ? '重新来过' : '下次 ${rec.nextIvl} 天后见'}';
         _index++;
         _revealed = false;
         _submitting = false;
@@ -128,6 +132,38 @@ class _ReviewPageState extends State<ReviewPage> {
     }
   }
 
+  /// 撤销最近一次评分（只在本轮内有效）：回到那张卡的翻面态，可直接重评。
+  Future<void> _undo() async {
+    final r = _last;
+    if (r == null || _submitting) return;
+    final idx = _index > 0 ? _index - 1 : 0;
+    final word = idx < _queue.length ? _queue[idx].word : '';
+    setState(() => _submitting = true);
+    try {
+      final ok = await widget.state.undoAnswer(r);
+      if (!mounted) return;
+      setState(() {
+        _submitting = false;
+        _last = null; // 无论成败都清槽：一张回执只能撤一次
+        if (!ok) return; // 回执过期（已不是最新一条）：无副作用
+        _index = idx;
+        _revealed = true; // 回到翻面态，方便直接重评
+        if (r.ease >= 2) {
+          if (_goodCount > 0) _goodCount--;
+        } else {
+          if (_againCount > 0) _againCount--;
+        }
+        _lastFeedback = '已撤销「$word」的评分';
+      });
+    } catch (e) {
+      if (mounted) {
+        setState(() => _submitting = false);
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('撤销失败: $e')));
+      }
+    }
+  }
+
   KeyEventResult _onKey(FocusNode node, KeyEvent event) {
     if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
       return KeyEventResult.ignored;
@@ -135,6 +171,14 @@ class _ReviewPageState extends State<ReviewPage> {
     // 纵深防御：非当前页不得因按键改变状态或写库。外壳在切页时会把焦点收回自己
     // （测试 4.6 覆盖），这里再兜一层，避免页面被挪出 IndexedStack 或新增切换路径后缺陷复活。
     if (!widget.isActive) return KeyEventResult.ignored;
+    // 撤销判定必须在「是否翻面」闸门**之前**：评分后界面处于下一张卡的未翻面态，
+    // 而且最后一张评完会进完成页（_current == null）——那两种状态下都要能撤。
+    if (event.logicalKey == LogicalKeyboardKey.digit0 ||
+        event.logicalKey == LogicalKeyboardKey.numpad0) {
+      if (_last == null) return KeyEventResult.ignored; // 无可撤销 → 不拦键
+      _undo();
+      return KeyEventResult.handled;
+    }
     if (_current == null) return KeyEventResult.ignored;
     if (!_revealed) {
       if (event.logicalKey == LogicalKeyboardKey.space) {
@@ -260,6 +304,12 @@ class _ReviewPageState extends State<ReviewPage> {
               color: Theme.of(context).colorScheme.onSurface)),
       const SizedBox(height: 18),
       Text('还记得它的意思吗？空格键 显示答案', style: text.bodySmall),
+      // 仅有可撤销评分时才提示，避免刚进页就误导（task 3.4）
+      if (_last != null)
+        Padding(
+          padding: const EdgeInsets.only(top: 6),
+          child: Text('按 0 撤销上一次评分', style: text.labelSmall),
+        ),
     ]);
   }
 
