@@ -78,6 +78,23 @@ Lupa-v0.2.1-windows.zip
 撤销的边界：只能撤**最近一次**评分，且离开复习页（队列重载）后失效；撤销会一并删掉那次评分写入的复习记录，该卡回到评分前的间隔与到期时间。
 
 
+### 复习数据修复
+
+v0.2.1 之前存在「隐藏页持焦导致静默评分」的缺陷（现已修正），可能把卡片误推进。修复脚本默认**只读**：
+
+```bash
+cd desktop
+dart run tool/reset_review_state.dart --all                    # dry-run：打印将重置的词与命中依据
+dart run tool/reset_review_state.dart --since 2026-09-05T12:00 --until 2026-09-06T12:00
+dart run tool/reset_review_state.dart --word abandon --orphans
+dart run tool/reset_review_state.dart --all --apply             # 真正写入（先自动备份）
+```
+
+- 重置语义：命中卡片打回**新词**（无间隔、无到期、累计次数归零）并删除其复习历史；此前的间隔与到期时间**不可恢复**。
+- `--apply` 前自动把 `notebook.sqlite` 备份为同目录下的 `lupa-backup-<时间戳>.sqlite`；恢复时用它覆盖回去即可。
+- 时间窗口精度约 **±1 分钟**：单词复习记录的 `time` 字段恒为 0，只能从记录 id 反推 65.536 秒宽的窗口（短语侧有真实时间戳，精确）。**同一分钟内的多次评分无法互相区分**，请用 `--until` 收窄并先看 dry-run 清单。
+- 顺带修数据卫生：移除生词时会一并删除其复习历史，`--orphans` 可清理旧版本残留的孤儿记录。
+
 ## 架构
 
 ```

@@ -174,6 +174,59 @@ Future<void> main() async {
   await conR.close();
   check('4.4 重新评分后 revlog=5', revlogAfterRedo == 5, detail: revlogAfterRedo);
 
+  // ---------- 4.5 按范围重置 + 孤儿清理 ----------
+  final planAll = await planReviewReset(nbPath, all: true);
+  check('4.5 全量计划命中 2 张卡', planAll.cardIds.length == 2, detail: planAll.cardIds.length);
+  check('4.5 全量计划历史行数=5', planAll.revlogRows == 5, detail: planAll.revlogRows);
+  check('4.5 应用后删除 5 行', await applyReviewReset(nbPath, planAll) == 5);
+  final afterReset = (await listWords(nbPath, includeSuspended: true))
+      .where((c) => c.word == 'abandon')
+      .first;
+  check('4.5 重置后回到新词',
+      afterReset.ivl == 0 && afterReset.reps == 0 && afterReset.lapses == 0 && afterReset.cardType == 0,
+      detail: 'ivl=${afterReset.ivl} reps=${afterReset.reps} type=${afterReset.cardType}');
+  final statsReset = await notebookStats(nbPath);
+  check('4.5 重置后统计：新词=2 复习中=0',
+      statsReset['new'] == 2 && statsReset['review'] == 0, detail: statsReset);
+  check('4.5 重置后重新进入到期队列', (await dueWords(nbPath)).length == 2);
+
+  // 窗口在评分时刻之前 → 不命中（历史已在上一步清空，这里验证计划为空）
+  final monthAgo = DateTime.now().millisecondsSinceEpoch ~/ 1000 - 86400 * 30;
+  final planOld = await planReviewReset(nbPath, sinceSec: monthAgo, untilSec: monthAgo + 60);
+  check('4.5 窗口外不命中', planOld.isEmpty, detail: planOld.cardIds.length);
+
+  // 孤儿历史：造一行 cid 不存在的记录
+  final conO = await databaseFactory.openDatabase(nbPath,
+      options: OpenDatabaseOptions(singleInstance: false));
+  await conO.rawInsert(
+    'INSERT INTO revlog (r_id, cid, usn, ease, ivl, last_ivl, factor, time, type) '
+    'VALUES (?, ?, 0, 3, 1, 0, 0, 0, 1)',
+    [DateTime.now().millisecondsSinceEpoch, 999999],
+  );
+  await conO.close();
+  final orphans = await planOrphanRevlog(nbPath);
+  check('4.5 识别孤儿历史 1 行', orphans.length == 1, detail: orphans.length);
+  check('4.5 清理孤儿 1 行', await applyOrphanRevlogCleanup(nbPath, orphans) == 1);
+  final afterOrphan = (await listWords(nbPath, includeSuspended: true))
+      .where((c) => c.word == 'abandon')
+      .first;
+  check('4.5 清孤儿不影响卡片状态',
+      afterOrphan.ivl == 0 && afterOrphan.cardType == 0, detail: afterOrphan.ivl);
+  check('4.5 清理后无孤儿', (await planOrphanRevlog(nbPath)).isEmpty);
+
+  // 移除生词时一并清历史（对齐短语侧外键级联）
+  final r7 = await answerCard(nbPath, afterOrphan.cardId, easeGood);
+  check('4.5 移除前该卡有 1 条历史',
+      (await planReviewReset(nbPath, words: {'abandon'})).revlogRows == 1);
+  await removeWord(nbPath, 'abandon');
+  final conRm = await databaseFactory.openDatabase(nbPath,
+      options: OpenDatabaseOptions(singleInstance: false));
+  final leftOver = (await conRm.rawQuery(
+          'SELECT COUNT(*) c FROM revlog WHERE cid = ?', [r7.cardId]))
+      .first['c'] as int;
+  await conRm.close();
+  check('4.5 移除后无残留历史', leftOver == 0, detail: leftOver);
+
   await tmp.delete(recursive: true);
   stdout.writeln(failures == 0 ? 'ALL PASS' : 'FAILURES: $failures');
 }

@@ -169,15 +169,30 @@ Future<int> addWord(
   }
 }
 
-/// 删除生词（notes 级联删 cards，依赖 PRAGMA foreign_keys=ON）。返回是否删除了。
+/// 删除生词（notes 级联删 cards，依赖 PRAGMA foreign_keys=ON）。
+///
+/// 同时清理这些卡片的复习历史：`revlog` 没有外键（只有 cid 索引），不显式删除
+/// 就会留下孤儿行（清理前实测存量 2 行）。返回是否删除了。
 Future<bool> removeWord(String nbPath, String word) async {
   final con = await _openNb(nbPath);
   try {
-    final n = await con.rawDelete(
-      'DELETE FROM notes WHERE sfld = ? COLLATE NOCASE',
-      [word.trim()],
-    );
-    return n > 0;
+    return await con.transaction((txn) async {
+      final cardRows = await txn.rawQuery(
+        'SELECT c.id AS id FROM cards c JOIN notes n ON n.id = c.n_id '
+        'WHERE n.sfld = ? COLLATE NOCASE',
+        [word.trim()],
+      );
+      final n = await txn.rawDelete(
+        'DELETE FROM notes WHERE sfld = ? COLLATE NOCASE',
+        [word.trim()],
+      );
+      if (cardRows.isNotEmpty) {
+        final ids = cardRows.map((r) => r['id'] as int).toList();
+        final ph = List.filled(ids.length, '?').join(',');
+        await txn.rawDelete('DELETE FROM revlog WHERE cid IN ($ph)', ids);
+      }
+      return n > 0;
+    });
   } finally {
     await con.close();
   }
@@ -362,6 +377,234 @@ Future<bool> undoAnswerCard(String nbPath, AnswerReceipt r) async {
         throw StateError('撤回卡片失败: ${r.cardId}'); // 抛错→事务回滚，不留半成品
       }
       return true;
+    });
+  } finally {
+    await con.close();
+  }
+}
+
+// ---- 复习数据重置（按范围）----
+// 用途：把被误评分推进过的卡打回新词，并清掉对应复习历史。
+// 分层：纯函数（时间窗 / 命中判定）→ 计划（只读，dry-run 打印它）→ 应用（单事务）。
+
+/// `r_id` 是「毫秒时间戳 ^ random(0x10000)」（见 [_genAnkiId]），低 16 位被随机化，
+/// 因此只能还原出一个 65.536 秒宽的时间窗（毫秒，左闭右开）。
+(int, int) ridTimeWindowMillis(int rId) {
+  final base = rId & ~0xFFFF;
+  return (base, base + 0x10000);
+}
+
+/// 命中明细（纯函数）：两个时间来源分别是否命中。
+/// - `mod`：该卡**只有 1 条**历史时，`cards.mod` 精确等于那次评分时间
+/// - `rid`：`r_id` 时间窗与目标区间**相交**（≈±65 秒精度）
+({bool mod, bool rid}) resetHitDetail({
+  required int historyCount,
+  required int cardModSec,
+  required Iterable<int> revlogRIds,
+  int? sinceSec,
+  int? untilSec,
+}) {
+  final int sinceMs = sinceSec == null ? -0x7FFFFFFFFFFFFFFF : sinceSec * 1000;
+  final int untilMs = untilSec == null ? 0x7FFFFFFFFFFFFFFF : untilSec * 1000;
+  final bool mod = historyCount == 1 &&
+      (sinceSec == null || cardModSec >= sinceSec) &&
+      (untilSec == null || cardModSec < untilSec);
+  var rid = false;
+  for (final r in revlogRIds) {
+    if (r <= 0) continue;
+    final (lo, hi) = ridTimeWindowMillis(r);
+    if (lo < untilMs && hi > sinceMs) {
+      rid = true;
+      break;
+    }
+  }
+  return (mod: mod, rid: rid);
+}
+
+/// 命中判定（纯函数，可单测）：该卡的复习历史是否落在 `[sinceSec, untilSec)` 内。
+/// 两个来源取并集，任一命中即算命中；偏向多命中——重置幂等可重跑，
+/// 漏清才会让用户反复执行仍清不干净。
+bool hitsResetWindow({
+  required int historyCount,
+  required int cardModSec,
+  required Iterable<int> revlogRIds,
+  int? sinceSec,
+  int? untilSec,
+}) {
+  if (sinceSec == null && untilSec == null) return true; // 不限窗口 = 全命中
+  final d = resetHitDetail(
+    historyCount: historyCount,
+    cardModSec: cardModSec,
+    revlogRIds: revlogRIds,
+    sinceSec: sinceSec,
+    untilSec: untilSec,
+  );
+  return d.mod || d.rid;
+}
+
+/// 命中依据文案（dry-run 报告用）。
+String resetHitBasis({
+  required int historyCount,
+  required int cardModSec,
+  required Iterable<int> revlogRIds,
+  int? sinceSec,
+  int? untilSec,
+}) {
+  final d = resetHitDetail(
+    historyCount: historyCount,
+    cardModSec: cardModSec,
+    revlogRIds: revlogRIds,
+    sinceSec: sinceSec,
+    untilSec: untilSec,
+  );
+  if (d.mod && d.rid) return 'mod+r_id';
+  if (d.mod) return 'mod';
+  if (d.rid) return 'r_id';
+  return '';
+}
+
+/// 重置计划：dry-run 打印它，[applyReviewReset] 也只吃它。
+class ReviewResetPlan {
+  final List<String> words; // 命中的词（按卡片 id 升序）
+  final List<int> cardIds;
+  final int revlogRows; // 将删除的历史行数
+  final Map<int, String> basis; // cardId -> 命中依据
+
+  const ReviewResetPlan({
+    required this.words,
+    required this.cardIds,
+    required this.revlogRows,
+    required this.basis,
+  });
+
+  bool get isEmpty => cardIds.isEmpty;
+}
+
+/// 生成重置计划（**只读**，不写库）。
+/// 范围二选一：[words]（指定词，忽略时间窗）或 [sinceSec]/[untilSec]（时间窗），
+/// 或 [all] = 全部卡片。
+Future<ReviewResetPlan> planReviewReset(
+  String nbPath, {
+  Set<String>? words,
+  int? sinceSec,
+  int? untilSec,
+  bool all = false,
+}) async {
+  await ensureNotebookDb(nbPath);
+  final con = await _openNb(nbPath);
+  try {
+    final cardRows = await con.rawQuery(
+      'SELECT c.id AS id, c.mod AS mod, n.sfld AS sfld FROM cards c '
+      'JOIN notes n ON n.id = c.n_id ORDER BY c.id',
+    );
+    final logRows =
+        await con.rawQuery('SELECT cid, r_id FROM revlog ORDER BY cid, id');
+    final ridByCard = <int, List<int>>{};
+    for (final r in logRows) {
+      (ridByCard[r['cid'] as int] ??= []).add(r['r_id'] as int);
+    }
+
+    final want = words?.map((w) => w.trim().toLowerCase()).toSet();
+    final ids = <int>[];
+    final pickedWords = <String>[];
+    final basis = <int, String>{};
+    for (final row in cardRows) {
+      final id = row['id'] as int;
+      final word = (row['sfld'] as String?) ?? '';
+      final rids = ridByCard[id] ?? const <int>[];
+      if (want != null) {
+        if (!want.contains(word.toLowerCase())) continue;
+        basis[id] = 'word';
+      } else if (all) {
+        basis[id] = 'all';
+      } else {
+        final hit = hitsResetWindow(
+          historyCount: rids.length,
+          cardModSec: row['mod'] as int,
+          revlogRIds: rids,
+          sinceSec: sinceSec,
+          untilSec: untilSec,
+        );
+        if (!hit) continue;
+        basis[id] = resetHitBasis(
+          historyCount: rids.length,
+          cardModSec: row['mod'] as int,
+          revlogRIds: rids,
+          sinceSec: sinceSec,
+          untilSec: untilSec,
+        );
+      }
+      ids.add(id);
+      pickedWords.add(word);
+    }
+    var rows = 0;
+    for (final id in ids) {
+      rows += ridByCard[id]?.length ?? 0;
+    }
+    return ReviewResetPlan(
+      words: pickedWords,
+      cardIds: ids,
+      revlogRows: rows,
+      basis: basis,
+    );
+  } finally {
+    await con.close();
+  }
+}
+
+/// 应用重置计划（单事务）：命中卡片打回新词 + 删除其复习历史。
+/// 返回删除的历史行数；不追加任何新历史。
+Future<int> applyReviewReset(String nbPath, ReviewResetPlan plan) async {
+  if (plan.cardIds.isEmpty) return 0;
+  await ensureNotebookDb(nbPath);
+  final con = await _openNb(nbPath);
+  try {
+    return await con.transaction((txn) async {
+      final ph = List.filled(plan.cardIds.length, '?').join(',');
+      final deleted = await txn.rawDelete(
+        'DELETE FROM revlog WHERE cid IN ($ph)',
+        plan.cardIds,
+      );
+      await txn.rawUpdate(
+        'UPDATE cards SET type = ?, queue = ?, due = 0, ivl = 0, factor = 0, '
+        'reps = 0, lapses = 0, left = 0, mod = ? WHERE id IN ($ph)',
+        [
+          cardNew,
+          queueNew,
+          DateTime.now().millisecondsSinceEpoch ~/ 1000,
+          ...plan.cardIds,
+        ],
+      );
+      return deleted;
+    });
+  } finally {
+    await con.close();
+  }
+}
+
+/// 孤儿复习历史（cid 已不在 cards 中）的行 id，升序。
+Future<List<int>> planOrphanRevlog(String nbPath) async {
+  await ensureNotebookDb(nbPath);
+  final con = await _openNb(nbPath);
+  try {
+    final rows = await con.rawQuery(
+      'SELECT id FROM revlog WHERE cid NOT IN (SELECT id FROM cards) ORDER BY id',
+    );
+    return rows.map((r) => r['id'] as int).toList();
+  } finally {
+    await con.close();
+  }
+}
+
+/// 删除指定的孤儿历史行（单事务）。不触碰任何卡片状态；返回删除条数。
+Future<int> applyOrphanRevlogCleanup(String nbPath, List<int> rowIds) async {
+  if (rowIds.isEmpty) return 0;
+  await ensureNotebookDb(nbPath);
+  final con = await _openNb(nbPath);
+  try {
+    return await con.transaction((txn) async {
+      final ph = List.filled(rowIds.length, '?').join(',');
+      return await txn.rawDelete('DELETE FROM revlog WHERE id IN ($ph)', rowIds);
     });
   } finally {
     await con.close();

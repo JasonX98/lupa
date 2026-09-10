@@ -49,6 +49,20 @@ LUPA_HOME=D:\AppFile\Lupa\data dart run tool/verify_e2e.dart          # 端到�
 LUPA_HOME=D:\AppFile\Lupa\data dart run tool/verify_phrase_repo.dart # 短语建库/CRUD/调度/导出
 ```
 
+### 复习数据维护脚本（`desktop/tool/reset_review_state.dart`）
+
+把被误评分推进过的卡片打回新词并删除其复习历史。**默认 dry-run（只读）**，
+必须显式 `--apply` 才写入，且写入前自动备份生词本（打印备份路径）。
+
+```bash
+dart run tool/reset_review_state.dart --all              # dry-run：打印命中词与依据
+dart run tool/reset_review_state.dart --since 2026-09-05T12:00 --until 2026-09-06T12:00
+dart run tool/reset_review_state.dart --word abandon --orphans
+dart run tool/reset_review_state.dart --all --apply      # 真正写入
+```
+
+时间窗口精度约 ±1 分钟（单词 `revlog.time` 恒为 0，只能从 `r_id` 反推 65.536 秒宽的窗口）。
+
 ## 关键约束
 
 1. **`schema.sql` 唯一事实源**：以 `desktop/lib/data/schema.sql` 为准。仅用 SQLite ≥ 3.38 标准 SQL（不用 JSON1 / STRICT / RETURNING / virtual table）。

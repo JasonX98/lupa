@@ -475,6 +475,111 @@ Future<bool> undoAnswerPhrase(String nbPath, PhraseAnswerReceipt r) async {
   }
 }
 
+// ---- 短语复习数据重置（按范围）----
+// 与单词侧同构，但时间依据更好：`phrase_review_log.ts` 是真实秒级时间戳
+// （单词侧 `revlog.time` 恒为 0，只能靠 r_id 反推 ±65 秒窗口）。
+
+/// 短语重置计划：dry-run 打印它，[applyPhraseReset] 也只吃它。
+class PhraseResetPlan {
+  final List<String> phrases; // 命中的短语（按 id 升序）
+  final List<int> ids;
+  final int logRows; // 将删除的历史行数
+  final Map<int, String> basis; // phraseId -> 命中依据
+
+  const PhraseResetPlan({
+    required this.phrases,
+    required this.ids,
+    required this.logRows,
+    required this.basis,
+  });
+
+  bool get isEmpty => ids.isEmpty;
+}
+
+/// 生成短语重置计划（**只读**，不写库）。
+/// 范围二选一：[phrases]（指定短语）或 [sinceSec]/[untilSec]（按 `ts` 精确判定），
+/// 或 [all] = 全部短语。
+Future<PhraseResetPlan> planPhraseReset(
+  String nbPath, {
+  Set<String>? phrases,
+  int? sinceSec,
+  int? untilSec,
+  bool all = false,
+}) async {
+  await ensureNotebookDb(nbPath);
+  final con = await _open(nbPath);
+  try {
+    final rows =
+        await con.rawQuery('SELECT id, phrase FROM phrases ORDER BY id');
+    final logRows = await con
+        .rawQuery('SELECT phrase_id, ts FROM phrase_review_log ORDER BY phrase_id, id');
+    final tsByPhrase = <int, List<int>>{};
+    for (final r in logRows) {
+      (tsByPhrase[r['phrase_id'] as int] ??= []).add(r['ts'] as int);
+    }
+    final want = phrases?.map((w) => w.trim().toLowerCase()).toSet();
+    final ids = <int>[];
+    final picked = <String>[];
+    final basis = <int, String>{};
+    for (final row in rows) {
+      final id = row['id'] as int;
+      final text = (row['phrase'] as String?) ?? '';
+      final tsList = tsByPhrase[id] ?? const <int>[];
+      if (want != null) {
+        if (!want.contains(text.toLowerCase())) continue;
+        basis[id] = 'phrase';
+      } else if (all) {
+        basis[id] = 'all';
+      } else {
+        final hit = tsList.any((ts) =>
+            (sinceSec == null || ts >= sinceSec) &&
+            (untilSec == null || ts < untilSec));
+        if (!hit) continue;
+        basis[id] = 'ts';
+      }
+      ids.add(id);
+      picked.add(text);
+    }
+    var logs = 0;
+    for (final id in ids) {
+      logs += tsByPhrase[id]?.length ?? 0;
+    }
+    return PhraseResetPlan(
+      phrases: picked,
+      ids: ids,
+      logRows: logs,
+      basis: basis,
+    );
+  } finally {
+    await con.close();
+  }
+}
+
+/// 应用短语重置计划（单事务）：命中短语打回新短语 + 删除其复习历史。
+/// 返回删除的历史行数；不追加任何新历史。
+Future<int> applyPhraseReset(String nbPath, PhraseResetPlan plan) async {
+  if (plan.ids.isEmpty) return 0;
+  await ensureNotebookDb(nbPath);
+  final con = await _open(nbPath);
+  try {
+    return await con.transaction((txn) async {
+      final ph = List.filled(plan.ids.length, '?').join(',');
+      final deleted = await txn.rawDelete(
+        'DELETE FROM phrase_review_log WHERE phrase_id IN ($ph)',
+        plan.ids,
+      );
+      await txn.rawUpdate(
+        'UPDATE phrases SET state = ?, due = 0, ivl = 0, reps = 0, lapses = 0 '
+        'WHERE id IN ($ph)',
+        [phraseNew, ...plan.ids],
+      );
+      return deleted;
+    });
+  } finally {
+    await con.close();
+  }
+}
+
 /// 短语统计：总数 / 新短语 / 复习中 / 今日到期 / 累计忘记。
 Future<Map<String, int>> phraseStats(String nbPath) async {
   await ensureNotebookDb(nbPath);

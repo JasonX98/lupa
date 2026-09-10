@@ -268,6 +268,19 @@ Future<void> main() async {
   check('2.5b 重复撤销被拒', !(await undoAnswerPhrase(nbPath, q8)));
   check('2.5b 被拒后历史仍为 4 条', await logCountOf(gradedId) == 4);
 
+  // ================= 2.5c 按范围重置短语 =================
+  final phrasePlan = await planPhraseReset(nbPath, all: true);
+  check('2.5c 全量计划命中至少 1 条', phrasePlan.ids.isNotEmpty, detail: phrasePlan.ids.length);
+  final appliedPhrase = await applyPhraseReset(nbPath, phrasePlan);
+  check('2.5c 应用后删除历史行数与计划一致', appliedPhrase == phrasePlan.logRows,
+      detail: '$appliedPhrase/${phrasePlan.logRows}');
+  final statsReset = await phraseStats(nbPath);
+  check('2.5c 重置后全部为新短语',
+      statsReset['new'] == statsReset['total'] && statsReset['review'] == 0, detail: statsReset);
+  check('2.5c 重置后历史清空', await logCountOf(gradedId) == 0);
+  check('2.5c 重置后重新进入到期队列',
+      (await duePhrases(nbPath)).length == statsReset['total'], detail: statsReset['total']);
+
   // ================= 1.2 旧库迁移（v1 -> v2）=================
   final tmp2 = await Directory.systemTemp.createTemp('lupa_phrase_mig_');
   final oldNb = p.absolute(p.join(tmp2.path, 'notebook.sqlite'));
