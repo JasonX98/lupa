@@ -1,5 +1,4 @@
 // Lupa TTS 服务 — 有道 dictvoice 音频下载，blob 落 audio_cache。
-// 与 Python 版 src/lupa/media/tts.py 行为对齐：
 // 缓存键 {provider}:{word}:mp3-{accent}（口音并入 fmt 段，同词英美音分开缓存）。
 import 'dart:typed_data';
 import 'dart:io';

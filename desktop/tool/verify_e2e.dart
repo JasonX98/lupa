@@ -68,7 +68,7 @@ Future<void> main() async {
   final outApkg = p.join(tmpHome.path, 'e2e.apkg');
   final report = await exportApkg(nb, outApkg);
   check('apkg 导出 1 张卡', report.count == 1 && File(report.path).lengthSync() > 0);
-  check('apkg guid 稳定（与 Python 版一致）',
+  check('apkg guid 稳定',
       stableGuid('abandon') == 'c82559e49d41d9a0', stableGuid('abandon'));
 
   final outCsv = p.join(tmpHome.path, 'e2e.csv');

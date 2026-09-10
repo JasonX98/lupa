@@ -37,7 +37,7 @@ Future<void> main(List<String> args) async {
     final okMeta = metaMap['schema_version'] == '2' && metaMap['lupa_version'] == '0.2.1';
     stdout.writeln('meta 校验: ${okMeta ? "PASS" : "FAIL"}');
 
-    // 幂等性：再次调用 ensureNotebook 不重建（与 Python 版一致）
+    // 幂等性：再次调用 ensureNotebook 不重建
     final dbPath2 = await ensureNotebook(home);
     stdout.writeln('幂等 ensureNotebook: ${dbPath2 == dbPath ? "PASS" : "FAIL"}');
   } finally {

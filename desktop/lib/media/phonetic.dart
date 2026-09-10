@@ -1,5 +1,4 @@
 // Lupa 音标服务 — 联网取美/英音标，结果落 phonetic_cache。
-// 与 Python 版 src/lupa/media/phonetic.py 行为对齐：
 // 缓存键三段式 {provider}:{word}:{fmt}；缓存命中 hit_count+1；联网异常抛错不吞。
 import 'dart:convert';
 import 'dart:io';

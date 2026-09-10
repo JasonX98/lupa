@@ -1,10 +1,6 @@
-// Lupa 复习调度 — v1 固定间隔。
+// Lupa 复习调度 — v1 固定间隔，按评分分级推进。
 //
-// 注意：本实现已与 Python 参考版 src/lupa/notebook/scheduler.py 分叉
-//（Python 版仍是「ease>=2 一律推进一档」，不区分模糊/记得/简单），按 AGENTS.md
-// 的约定不再回同步。
-//
-// 间隔档位：1/3/7/15/30 天。按评分分级推进：
+// 间隔档位：1/3/7/15/30 天：
 //   忘了(1) → 回第一档；模糊(2) → 保持当前档；记得(3) → 前进一档；简单(4) → 前进两档。
 //   新词（ivl < 1）按"即将进入第一档"计，故与间隔 1 天的卡同档。
 // 纯函数，无 IO。
@@ -52,7 +48,7 @@ int nextInterval(int currentIvl, int ease) {
 
 /// 返回 (nextIvl, dueUnixSeconds)。
 ///
-/// Anki 约定：review 卡的 due = 当天零点 + ivl 天；v1 简化：now + ivl*86400（与 Python 版一致）。
+/// Anki 约定：review 卡的 due = 当天零点 + ivl 天；v1 简化：now + ivl*86400。
 (int, int) dueTimestamp(int currentIvl, int ease, {int? now}) {
   final ts = now ?? DateTime.now().millisecondsSinceEpoch ~/ 1000;
   final nextIvl = nextInterval(currentIvl, ease);

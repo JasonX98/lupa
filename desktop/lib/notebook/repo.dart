@@ -1,7 +1,7 @@
-// Lupa 生词本 CRUD — 与 Python 版 src/lupa/notebook/repo.py 行为对齐（纯数据层，无 UI）。
+// Lupa 生词本 CRUD — 纯数据层，无 UI。
 //
 // schema 见 lib/data/schema.sql（notes / cards / revlog / 3 缓存表 / meta）。
-// 字段语义、id 生成、去重与错误行为均与 Python 版保持一致。
+// 字段语义、id 生成、去重与错误行为是 Anki 兼容的唯一实现。
 import 'package:crypto/crypto.dart';
 import 'dart:math';
 
@@ -11,7 +11,7 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import '../data/notebook_db.dart';
 import 'scheduler.dart' show dueTimestamp;
 
-// 与 Python 版对齐的常量
+// 调度 / 牌组常量
 const int modelId = 1; // 默认笔记模型 id（v1 只有一种模型）
 const int deckId = 1; // 默认牌组 id
 const String fieldSep = '\x1f'; // Anki 字段分隔符
@@ -78,7 +78,7 @@ class DuplicateWordError implements Exception {
 
 final _random = Random();
 
-/// Anki 兼容 id（毫秒时间戳 ^ 随机低 16 位，与 Python 版 _gen_anki_id 一致）。
+/// Anki 兼容 id（毫秒时间戳 ^ 随机低 16 位）。
 int _genAnkiId() =>
     DateTime.now().millisecondsSinceEpoch ^ _random.nextInt(0x10000);
 
@@ -317,7 +317,7 @@ Future<Map<String, int>> notebookStats(String nbPath) async {
   }
 }
 
-/// 打开生词本连接（启用外键级联，与 Python 版 _connect 一致）。
+/// 打开生词本连接（启用外键级联）。
 /// singleInstance: false —— sqflite 默认同路径返回连接单例，A 函数 close
 /// 会把 B 并发查询的连接关掉（database_closed）；独立连接才符合
 /// 「函数内开、finally 关」的模型。

@@ -1,5 +1,5 @@
 // Lupa 导出 — Anki .apkg（ganki）。
-// 与 Python 版 src/lupa/export/apkg.py 对齐：固定 model/deck id、稳定 guid、6 字段模板。
+// 固定 model/deck id、稳定 guid、6 字段模板；重复导出在 Anki 中合并而非重复建卡。
 import 'dart:convert';
 import 'dart:io';
 
@@ -67,11 +67,11 @@ class ExportReport {
   String toString() => 'ExportReport(count: $count, path: $path, sizeBytes: $sizeBytes)';
 }
 
-/// 同词稳定 guid：Anki 重复导入时更新而非重复建卡（与 Python 版一致）。
+/// 同词稳定 guid：Anki 重复导入时更新而非重复建卡。
 String stableGuid(String word) =>
     sha1.convert(utf8.encode('lupa::$word')).toString().substring(0, 16);
 
-/// 词形变化格式化：`d:xx/p:xx` -> 中文标签 + <br> 分行（与 Python `_fmt_exchange` 一致）。
+/// 词形变化格式化：`d:xx/p:xx` -> 中文标签 + <br> 分行。
 String fmtExchange(String exchange) {
   if (exchange.isEmpty) return '';
   const labels = {

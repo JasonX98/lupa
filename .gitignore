@@ -1,15 +1,7 @@
-# ---------- Python ----------
+# ---------- Python（仅剩 desktop/tool 的验证/工具脚本；dist/ build/ 同时用于 Flutter 构建产物）----------
 __pycache__/
 *.py[cod]
-*$py.class
-*.so
-.Python
 .venv/
-venv/
-ENV/
-env/
-.eggs/
-*.egg-info/
 dist/
 build/
 .pytest_cache/
@@ -43,7 +35,6 @@ notes.md
 
 # ---------- ECDICT 原始词库（可走单独下载脚本，不入仓） ----------
 *.csv
-!tests/fixtures/*.csv
 ecdict/
 ecdict.csv
 stardict.7z

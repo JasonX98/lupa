@@ -33,7 +33,7 @@ Future<void> main(List<String> args) async {
   final report = await exportApkg(nbPath, '${tmp.path}/out.apkg');
   check('6.1 apkg 写盘且非空', report.count == 3 && report.sizeBytes > 1000,
       detail: report);
-  check('6.1 apkg guid 与 Python 版一致 (abandon)',
+  check('6.1 apkg guid 稳定 (abandon)',
       stableGuid('abandon') == 'c82559e49d41d9a0', detail: stableGuid('abandon'));
 
   final zip = await _checkApkg('${tmp.path}/out.apkg');

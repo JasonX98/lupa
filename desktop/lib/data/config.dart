@@ -1,6 +1,5 @@
 // Lupa 配置 — 服务商 URL 全部走配置文件，不硬编码。
-// 与 Python 版 src/lupa/config.py 行为对齐：LUPA_HOME/config.json > 内置默认，浅合并。
-// 数据目录解析见 lib/data/data_home.dart。
+// 解析顺序：LUPA_HOME/config.json > 内置默认，浅合并（数据目录解析见 lib/data/data_home.dart）。
 import 'dart:convert';
 import 'dart:io';
 

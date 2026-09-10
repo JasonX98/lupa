@@ -1,5 +1,5 @@
 // ganki apkg spike — 验证 ganki 能否用 Lupa 模型生成 Anki 可导入的 .apkg
-// 复用 src/lupa/export/apkg.py 的模型 ID / CSS / 模板 / 稳定 guid 逻辑。
+// 复用 lib/export/apkg.dart 的固定 model / deck / 稳定 guid 逻辑。
 import 'dart:convert';
 import 'dart:io';
 

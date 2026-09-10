@@ -1,4 +1,4 @@
-// 验证 5.1 / 5.2：音标与 TTS 的缓存键、命中/未命中行为与 Python 版一致。
+// 验证 5.1 / 5.2：音标与 TTS 的缓存键、命中/未命中行为。
 // 用法: LUPA_HOME=../data dart run tool/verify_media.dart [word]
 // 说明: 未命中缓存时会真实联网（有道）。传词参数可自定义；默认用 "spike"（大概率未缓存）。
 import 'dart:io';

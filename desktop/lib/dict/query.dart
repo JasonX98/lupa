@@ -1,4 +1,4 @@
-// Lupa 词库查询 — 与 Python 版 src/lupa/dict/query.py 行为对齐（纯查询，无 IO 副作用）。
+// Lupa 词库查询 — 纯查询，无 IO 副作用。
 import 'dart:io';
 
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';

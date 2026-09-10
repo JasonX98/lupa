@@ -1,4 +1,4 @@
-// 验证 2.3 / 3.1 / 3.2：Dart 词库查询与 Python 版行为一致。
+// 验证 2.3 / 3.1 / 3.2：词库查询（前缀联想 / 命中 / 统计）。
 // 用法: dart run tool/verify_dict_query.dart
 import 'dart:io';
 

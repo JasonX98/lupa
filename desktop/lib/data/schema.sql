@@ -4,7 +4,7 @@
 -- 跨语言友好约束 #1：本文件仅使用 SQLite >= 3.38 标准 SQL。
 --   - 不使用 JSON1 扩展、STRICT 表、RETURNING 子句、WITHOUT ROWID、
 --     virtual table、generated columns、窗口函数（SQLite 3.25+ 标准除外）
---   - 兼容目标：Python sqlite3 (3.39+)、Flutter sqflite (3.39+)
+--   - 兼容目标：Flutter sqflite / sqlite3（SQLite 3.39+）
 --   - 如确需上述特性，必须在此文件顶部注释「此处需 SQLite >= X.Y」
 --     并在 README 中说明 Flutter 端兼容情况。
 --
@@ -14,8 +14,7 @@
 --   - 复习历史与卡片状态分离（revlog 单独成表），便于调算法与导出。
 --   - media_cache 三表用三段式缓存键 (provider:word:format)，
 --     便于切换音标/TTS 服务商而无需迁移数据（跨语言友好约束 #3）。
---   - 所有主键用 INTEGER 自增，对外 ID 用 TEXT（Anki 风格 hex / uuid），
---     便于 Python 与 Flutter 双向读写。
+--   - 所有主键用 INTEGER 自增，对外 ID 用 TEXT（Anki 风格 hex / uuid）。
 -- ============================================================================
 
 -- ----- Anki 兼容三表 -----

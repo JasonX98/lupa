@@ -1,4 +1,4 @@
-// 验证 4.1 / 4.2 / 4.3：生词本 CRUD、固定间隔调度、复习答题与 Python 版行为一致。
+// 验证 4.1 / 4.2 / 4.3：生词本 CRUD、固定间隔调度、复习答题。
 // 用法: LUPA_HOME=../data dart run tool/verify_notebook_repo.dart
 import 'dart:io';
 

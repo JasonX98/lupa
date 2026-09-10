@@ -1,5 +1,5 @@
 // Lupa 导出 — CSV（UTF-8 带 BOM，Excel 直接打开不乱码）。
-// 与 Python 版 src/lupa/export/csv.py 对齐：表头 7 列；exchange 的 \x1f 分隔替换为 " | "。
+// 表头 7 列；exchange 的 \x1f 分隔替换为 " | "。
 import 'dart:convert';
 import 'dart:io';
 

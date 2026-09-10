@@ -6,7 +6,6 @@
 //   dataHome()    — 实际数据所在目录（notebook.sqlite / dict.sqlite / exports/）。
 //                   解析顺序：settings.dataDir（config.json 覆盖）> LUPA_HOME > `<exe>/lupa_data`。
 //
-// 与 Python CLI 行为声明解耦（Python 现仅作 MVP 验证，不作后续契约）。
 // schema.sql 是独立模板，不走本目录（见 notebook_db.dart loadSchemaSql）。
 import 'dart:convert';
 import 'dart:io';
