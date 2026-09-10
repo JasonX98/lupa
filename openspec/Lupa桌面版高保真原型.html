@@ -1,0 +1,1868 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light" data-page-node-id="yC6gd7CdLLg5iIDFsn6Umy">
+<head data-page-node-id="DMUgA6NgwZDY2yYmP9BnJd">
+<meta charset="UTF-8" data-page-node-id="NShyCHHLij0GgPT5VkUObu">
+<meta name="viewport" content="width=device-width, initial-scale=1" data-page-node-id="UuS58hygETBk2gyp5hj2z6">
+<title>Lupa / 璐帕 — 桌面版 UI 高保真原型</title>
+<style>
+/* ============================================================
+   Lupa Design Tokens v1.0  —  纸感 + 玉色
+   ============================================================ */
+:root{
+  /* 中性 / 表面 */
+  --bg-app:#F2F1ED;
+  --bg-surface:#FFFFFF;
+  --bg-sunken:#EAE8E2;
+  --bg-raised:#FBFBF9;
+  --border:#E1DED6;
+  --border-strong:#CFCCC2;
+
+  /* 文本 */
+  --tx-1:#191C19;   /* 17.2:1 on surface */
+  --tx-2:#4F544E;   /*  7.8:1 */
+  --tx-3:#6E736D;   /*  4.8:1 — 仍达 AA 正文下限 */
+  --tx-inv:#FFFFFF;
+
+  /* 主色：玉青（璐 = 美玉） */
+  --ac:#0E7C6B;
+  --ac-hover:#0A6356;
+  --ac-press:#074F45;
+  --ac-soft:#E4F1EE;
+  --ac-soft-2:#CFE6E1;
+  --ac-ring:rgba(14,124,107,.22);
+
+  /* 语义 */
+  --ok:#1F7A4D;
+  --ok-soft:#E5F3EA;
+  --warn:#A96008;
+  --warn-soft:#FBEEDC;
+  --danger:#B02A20;
+  --danger-soft:#FBE8E6;
+  --info:#3C5BA9;
+  --info-soft:#E7ECF8;
+  --violet:#5B4FCF;
+  --violet-soft:#EBE9FA;
+
+  /* 字体 */
+  --f-sans:'Segoe UI Variable Display','Segoe UI','PingFang SC','Microsoft YaHei',system-ui,sans-serif;
+  --f-serif:Georgia,'Source Serif Pro','Times New Roman',serif;
+  --f-mono:'Cascadia Mono','JetBrains Mono',Consolas,'Courier New',monospace;
+
+  /* 字号 */
+  --fs-display:34px;
+  --fs-h1:21px;
+  --fs-h2:16px;
+  --fs-h3:14px;
+  --fs-body:14px;
+  --fs-sm:13px;
+  --fs-xs:12px;
+  --fs-2xs:11px;
+
+  /* 间距 4px 基准 */
+  --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:20px; --s6:24px; --s8:32px; --s10:40px; --s12:48px;
+
+  /* 圆角 */
+  --r-sm:6px; --r-md:8px; --r-lg:10px; --r-xl:14px; --r-full:999px;
+
+  /* 阴影：纸感，轻投影 */
+  --sh-1:0 1px 2px rgba(24,28,24,.06), 0 0 0 1px rgba(24,28,24,.04);
+  --sh-2:0 2px 8px rgba(24,28,24,.08), 0 0 0 1px rgba(24,28,24,.05);
+  --sh-3:0 8px 24px rgba(24,28,24,.12), 0 2px 6px rgba(24,28,24,.06);
+  --sh-4:0 20px 48px rgba(24,28,24,.20), 0 4px 12px rgba(24,28,24,.10);
+
+  --t-fast:120ms cubic-bezier(.4,0,.2,1);
+  --t-base:200ms cubic-bezier(.4,0,.2,1);
+  --t-slow:320ms cubic-bezier(.32,.72,.3,1);
+}
+[data-theme="dark"]{
+  --bg-app:#131513;
+  --bg-surface:#1D201D;
+  --bg-sunken:#0F110F;
+  --bg-raised:#232723;
+  --border:#2E322E;
+  --border-strong:#3E443E;
+  --tx-1:#ECEEEA;
+  --tx-2:#A6ABA4;
+  --tx-3:#8A9089;
+  --ac:#4DC2AB;
+  --ac-hover:#6AD0BC;
+  --ac-press:#3BA894;
+  --ac-soft:#17302B;
+  --ac-soft-2:#1E3F38;
+  --ac-ring:rgba(77,194,171,.26);
+  --ok:#5DBE87; --ok-soft:#152A1E;
+  --warn:#D9A34A; --warn-soft:#2E2414;
+  --danger:#E6756A; --danger-soft:#331A17;
+  --info:#7F97E4; --info-soft:#1A2033;
+  --violet:#9A90F0; --violet-soft:#201E33;
+  --sh-1:0 1px 2px rgba(0,0,0,.5), 0 0 0 1px rgba(255,255,255,.04);
+  --sh-2:0 2px 8px rgba(0,0,0,.55), 0 0 0 1px rgba(255,255,255,.05);
+  --sh-3:0 8px 24px rgba(0,0,0,.6), 0 2px 6px rgba(0,0,0,.4);
+  --sh-4:0 20px 48px rgba(0,0,0,.7), 0 4px 12px rgba(0,0,0,.5);
+}
+
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{
+  font-family:var(--f-sans);
+  font-size:var(--fs-body);
+  color:var(--tx-1);
+  background:#DCDCd8;
+  display:flex; align-items:center; justify-content:center;
+  padding:24px;
+  -webkit-font-smoothing:antialiased;
+}
+[data-theme="dark"] body{background:#080908}
+button,input,select,textarea{font:inherit;color:inherit}
+button{background:none;border:none;cursor:pointer}
+::selection{background:var(--ac-soft-2);color:var(--tx-1)}
+:focus-visible{outline:2px solid var(--ac);outline-offset:2px;border-radius:var(--r-sm)}
+
+/* 滚动条 */
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border-strong);border-radius:99px;border:3px solid transparent;background-clip:content-box}
+::-webkit-scrollbar-thumb:hover{background:var(--tx-3);background-clip:content-box;border:3px solid transparent}
+
+/* ============ 窗口外壳 ============ */
+.win{
+  width:100%; max-width:1280px; height:min(840px, calc(100vh - 48px));
+  background:var(--bg-app);
+  border:1px solid var(--border-strong);
+  border-radius:12px; box-shadow:var(--sh-4);
+  display:flex; flex-direction:column; overflow:hidden;
+}
+.titlebar{
+  height:38px; flex:0 0 38px;
+  background:var(--bg-surface);
+  border-bottom:1px solid var(--border);
+  display:flex; align-items:center; justify-content:space-between;
+  padding-left:var(--s4); user-select:none;
+}
+.tb-left{display:flex;align-items:center;gap:var(--s2)}
+.tb-dot{width:14px;height:14px;border-radius:50%;display:grid;place-items:center}
+.tb-title{font-size:var(--fs-xs);color:var(--tx-2);letter-spacing:.02em}
+.tb-right{display:flex;height:100%}
+.tb-btn{width:44px;height:38px;display:grid;place-items:center;transition:background var(--t-fast)}
+.tb-btn:hover{background:var(--bg-sunken)}
+.tb-btn.close:hover{background:#C42B1C}
+.tb-btn.close:hover svg{stroke:#fff}
+.tb-btn svg{stroke:var(--tx-2)}
+
+.app-body{flex:1;display:flex;min-height:0}
+
+/* ============ 侧边导航 ============ */
+.nav{
+  width:232px; flex:0 0 232px;
+  background:var(--bg-surface);
+  border-right:1px solid var(--border);
+  display:flex; flex-direction:column; padding:var(--s4) var(--s3);
+}
+.brand{display:flex;align-items:center;gap:10px;padding:var(--s2) var(--s2) var(--s5)}
+.brand-mark{
+  width:30px;height:30px;border-radius:9px;flex:0 0 30px;
+  background:linear-gradient(145deg,var(--ac),#0A5A4E);
+  display:grid;place-items:center;box-shadow:0 2px 6px rgba(14,124,107,.32);
+}
+.brand-name{font-size:16px;font-weight:650;letter-spacing:-.01em;line-height:1.15}
+.brand-sub{font-size:var(--fs-2xs);color:var(--tx-3);letter-spacing:.14em;text-transform:uppercase}
+
+.nav-group{display:flex;flex-direction:column;gap:2px}
+.nav-label{font-size:var(--fs-2xs);color:var(--tx-3);font-weight:600;letter-spacing:.08em;padding:var(--s3) var(--s2) var(--s1)}
+.nav-item{
+  display:flex;align-items:center;gap:10px;
+  height:38px;padding:0 var(--s2);border-radius:var(--r-md);
+  font-size:var(--fs-h3);color:var(--tx-2);font-weight:500;
+  transition:background var(--t-fast),color var(--t-fast);
+  position:relative;
+}
+.nav-item svg{stroke:currentColor;flex:0 0 18px}
+.nav-item:hover{background:var(--bg-sunken);color:var(--tx-1)}
+.nav-item.on{background:var(--ac-soft);color:var(--ac);font-weight:600}
+[data-theme="dark"] .nav-item.on{background:var(--ac-soft)}
+.nav-item.on::before{content:'';position:absolute;left:-12px;top:9px;bottom:9px;width:3px;border-radius:0 3px 3px 0;background:var(--ac)}
+.nav-kbd{margin-left:auto;font-size:var(--fs-2xs);color:var(--tx-3);font-family:var(--f-mono);letter-spacing:.02em}
+.nav-item.on .nav-kbd{color:var(--ac);opacity:.75}
+.nav-badge{margin-left:auto;background:var(--danger);color:#fff;font-size:10px;font-weight:700;min-width:19px;height:19px;border-radius:99px;display:grid;place-items:center;padding:0 5px}
+.nav-spacer{flex:1}
+.nav-foot{border-top:1px solid var(--border);padding-top:var(--s3);display:flex;flex-direction:column;gap:2px}
+
+/* ============ 主区 ============ */
+.main{flex:1;display:flex;flex-direction:column;min-width:0}
+.topbar{
+  height:64px;flex:0 0 64px;background:var(--bg-surface);border-bottom:1px solid var(--border);
+  display:flex;align-items:center;gap:var(--s3);padding:0 var(--s6);
+}
+.search{
+  flex:1;max-width:620px;height:38px;display:flex;align-items:center;gap:10px;
+  background:var(--bg-app);border:1px solid var(--border);border-radius:var(--r-md);
+  padding:0 var(--s3);transition:border-color var(--t-fast),box-shadow var(--t-fast),background var(--t-fast);
+}
+.search:focus-within{border-color:var(--ac);box-shadow:0 0 0 3px var(--ac-ring);background:var(--bg-surface)}
+.search svg{stroke:var(--tx-3);flex:0 0 17px}
+.search input{flex:1;border:none;background:none;outline:none;font-size:var(--fs-h3)}
+.search input::placeholder{color:var(--tx-3)}
+.search-clear{display:none;color:var(--tx-3);font-size:16px;line-height:1;padding:2px 4px;border-radius:4px}
+.search.has-value .search-clear{display:block}
+.search-clear:hover{background:var(--bg-sunken);color:var(--tx-1)}
+.kbd{
+  font-family:var(--f-mono);font-size:10px;color:var(--tx-3);
+  border:1px solid var(--border-strong);border-bottom-width:2px;
+  border-radius:5px;padding:2px 5px;background:var(--bg-raised);white-space:nowrap;
+}
+.topbar-right{margin-left:auto;display:flex;align-items:center;gap:var(--s2)}
+.icon-btn{
+  width:34px;height:34px;border-radius:var(--r-md);display:grid;place-items:center;
+  color:var(--tx-2);transition:background var(--t-fast),color var(--t-fast);
+}
+.icon-btn:hover{background:var(--bg-sunken);color:var(--tx-1)}
+.icon-btn svg{stroke:currentColor}
+.divider-v{width:1px;height:22px;background:var(--border);margin:0 var(--s1)}
+
+.content{flex:1;overflow-y:auto;padding:var(--s6);min-height:0}
+.page{display:none;animation:fade var(--t-base)}
+.page.on{display:block}
+@keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+
+.page-head{margin-bottom:var(--s5)}
+.page-head h1{font-size:var(--fs-h1);font-weight:650;letter-spacing:-.015em}
+.page-head p{font-size:var(--fs-sm);color:var(--tx-2);margin-top:3px}
+
+/* ============ 通用组件 ============ */
+.card{background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--r-lg);box-shadow:var(--sh-1)}
+.card-pad{padding:var(--s5)}
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:6px;
+  height:34px;padding:0 14px;border-radius:var(--r-md);
+  font-size:var(--fs-h3);font-weight:600;
+  transition:background var(--t-fast),border-color var(--t-fast),transform var(--t-fast),box-shadow var(--t-fast);
+  white-space:nowrap;
+}
+.btn svg{stroke:currentColor;flex:0 0 16px}
+.btn:active{transform:translateY(1px)}
+.btn-primary{background:var(--ac);color:#fff;box-shadow:0 1px 2px rgba(14,124,107,.3)}
+.btn-primary:hover{background:var(--ac-hover)}
+[data-theme="dark"] .btn-primary{color:#08201C}
+.btn-ghost{color:var(--tx-2);border:1px solid var(--border)}
+.btn-ghost:hover{background:var(--bg-sunken);color:var(--tx-1);border-color:var(--border-strong)}
+.btn-soft{background:var(--ac-soft);color:var(--ac)}
+.btn-soft:hover{background:var(--ac-soft-2)}
+.btn-danger{background:var(--danger-soft);color:var(--danger)}
+.btn-lg{height:42px;padding:0 20px;font-size:var(--fs-h3)}
+.btn:disabled{opacity:.45;pointer-events:none}
+
+.badge{
+  display:inline-flex;align-items:center;gap:4px;
+  height:20px;padding:0 8px;border-radius:var(--r-full);
+  font-size:var(--fs-2xs);font-weight:650;letter-spacing:.01em;
+}
+.b-ac{background:var(--ac-soft);color:var(--ac)}
+.b-amber{background:var(--warn-soft);color:var(--warn)}
+.b-violet{background:var(--violet-soft);color:var(--violet)}
+.b-blue{background:var(--info-soft);color:var(--info)}
+.b-gray{background:var(--bg-sunken);color:var(--tx-2)}
+.b-red{background:var(--danger-soft);color:var(--danger)}
+.b-green{background:var(--ok-soft);color:var(--ok)}
+
+.dot{width:7px;height:7px;border-radius:50%;flex:0 0 7px;display:inline-block}
+.st-new{background:#8B908A}
+.st-learn{background:var(--warn)}
+.st-review{background:var(--ac)}
+.st-due{background:var(--danger)}
+
+.sect-title{font-size:var(--fs-2xs);font-weight:700;color:var(--tx-3);letter-spacing:.09em;text-transform:uppercase;margin-bottom:var(--s3)}
+
+.sec-label{display:flex;align-items:center;gap:var(--s2);margin:var(--s5) 0 var(--s3)}
+.sec-label h2{font-size:var(--fs-h3);font-weight:650}
+.sec-label .line{flex:1;height:1px;background:var(--border)}
+
+/* ============ P1 查词 ============ */
+.result-grid{display:grid;grid-template-columns:1fr 300px;gap:var(--s5);align-items:start}
+@media(max-width:1120px){.result-grid{grid-template-columns:1fr}}
+.word-head{display:flex;align-items:flex-end;gap:var(--s3);flex-wrap:wrap}
+.word-title{font-family:var(--f-serif);font-size:var(--fs-display);font-weight:600;letter-spacing:-.02em;line-height:1.1}
+.word-ph{font-family:var(--f-mono);font-size:15px;color:var(--tx-2);padding-bottom:5px}
+.head-actions{margin-left:auto;display:flex;align-items:center;gap:var(--s2)}
+.pron-group{display:flex;border:1px solid var(--border);border-radius:var(--r-md);overflow:hidden;height:34px}
+.pron-btn{
+  display:flex;align-items:center;gap:5px;padding:0 11px;font-size:var(--fs-xs);font-weight:600;
+  color:var(--tx-2);transition:background var(--t-fast),color var(--t-fast);
+}
+.pron-btn+.pron-btn{border-left:1px solid var(--border)}
+.pron-btn:hover{background:var(--ac-soft);color:var(--ac)}
+.pron-btn svg{stroke:currentColor}
+.star-btn{
+  width:34px;height:34px;border-radius:var(--r-md);border:1px solid var(--border);
+  display:grid;place-items:center;color:var(--tx-3);
+  transition:all var(--t-fast);
+}
+.star-btn:hover{border-color:var(--warn);color:var(--warn);background:var(--warn-soft)}
+.star-btn.on{border-color:var(--warn);color:var(--warn);background:var(--warn-soft)}
+.star-btn.on svg{fill:var(--warn)}
+.star-btn svg{stroke:currentColor}
+
+.tag-row{display:flex;flex-wrap:wrap;gap:6px;margin-top:var(--s3)}
+.def-cn{font-size:15px;line-height:1.85;color:var(--tx-1);white-space:pre-line}
+.def-en{
+  font-family:var(--f-serif);font-size:14.5px;line-height:1.7;color:var(--tx-2);
+  padding-left:var(--s3);border-left:2px solid var(--ac-soft-2);
+}
+.exch{display:grid;grid-template-columns:repeat(2,1fr);gap:var(--s2) var(--s5)}
+.exch-row{display:flex;align-items:baseline;gap:var(--s2);font-size:var(--fs-sm)}
+.exch-row .k{color:var(--tx-3);font-size:var(--fs-xs);flex:0 0 68px}
+.exch-row .v{font-family:var(--f-mono);color:var(--tx-1);font-size:var(--fs-sm)}
+
+.freq-row{display:flex;align-items:center;gap:var(--s3);margin-top:var(--s2)}
+.freq-bar{flex:1;height:6px;border-radius:99px;background:var(--bg-sunken);overflow:hidden}
+.freq-fill{height:100%;border-radius:99px;background:linear-gradient(90deg,var(--ac),#4DBFA8)}
+.meta-list{display:flex;flex-direction:column;gap:var(--s2)}
+.meta-row{display:flex;justify-content:space-between;font-size:var(--fs-sm)}
+.meta-row .k{color:var(--tx-3)}
+.meta-row .v{font-family:var(--f-mono);font-weight:600}
+
+.history-list{display:flex;flex-direction:column;gap:2px}
+.history-item{
+  display:flex;align-items:center;gap:var(--s2);height:32px;padding:0 var(--s2);
+  border-radius:var(--r-sm);font-size:var(--fs-sm);color:var(--tx-2);transition:background var(--t-fast);
+}
+.history-item:hover{background:var(--bg-sunken);color:var(--tx-1)}
+.history-item .t{margin-left:auto;font-size:var(--fs-2xs);color:var(--tx-3)}
+
+.empty{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  padding:var(--s12) var(--s6);text-align:center;gap:var(--s3);
+}
+.empty-ill{
+  width:76px;height:76px;border-radius:50%;background:var(--bg-sunken);
+  display:grid;place-items:center;margin-bottom:var(--s2);
+}
+.empty-ill svg{stroke:var(--tx-3)}
+.empty h3{font-size:var(--fs-h2);font-weight:600}
+.empty p{font-size:var(--fs-sm);color:var(--tx-2);max-width:380px;line-height:1.7}
+.empty .hint{
+  margin-top:var(--s3);display:flex;gap:var(--s2);flex-wrap:wrap;justify-content:center;
+  font-size:var(--fs-xs);color:var(--tx-3);
+}
+
+/* ============ P2 生词本 ============ */
+.toolbar{display:flex;align-items:center;gap:var(--s3);margin-bottom:var(--s4);flex-wrap:wrap}
+.chips{display:flex;gap:6px;background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--r-md);padding:3px}
+.chip{
+  height:28px;padding:0 12px;border-radius:var(--r-sm);font-size:var(--fs-sm);font-weight:600;
+  color:var(--tx-2);display:flex;align-items:center;gap:6px;transition:all var(--t-fast);
+}
+.chip:hover{background:var(--bg-sunken)}
+.chip.on{background:var(--ac);color:#fff}
+[data-theme="dark"] .chip.on{color:#08201C}
+.chip .n{font-size:10px;opacity:.7;font-family:var(--f-mono)}
+.sort-sel{
+  height:34px;border:1px solid var(--border);border-radius:var(--r-md);background:var(--bg-surface);
+  padding:0 var(--s3);font-size:var(--fs-sm);color:var(--tx-2);cursor:pointer;
+}
+.tbl-wrap{background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--r-lg);overflow:hidden;box-shadow:var(--sh-1)}
+table{width:100%;border-collapse:collapse}
+thead th{
+  text-align:left;font-size:var(--fs-2xs);font-weight:700;color:var(--tx-3);
+  letter-spacing:.07em;text-transform:uppercase;
+  padding:var(--s3) var(--s4);background:var(--bg-raised);border-bottom:1px solid var(--border);
+  white-space:nowrap;
+}
+tbody td{padding:var(--s3) var(--s4);border-bottom:1px solid var(--border);font-size:var(--fs-sm);vertical-align:middle}
+tbody tr:last-child td{border-bottom:none}
+tbody tr{transition:background var(--t-fast)}
+tbody tr:hover{background:var(--bg-raised)}
+tbody tr.sel{background:var(--ac-soft)}
+.w-cell{display:flex;align-items:center;gap:var(--s2)}
+.w-word{font-weight:600;font-size:var(--fs-h3)}
+.w-ph{font-family:var(--f-mono);font-size:var(--fs-xs);color:var(--tx-3)}
+.w-trans{color:var(--tx-2);max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.st-cell{display:flex;align-items:center;gap:6px;font-size:var(--fs-xs);font-weight:600;white-space:nowrap}
+.ivl-cell{font-family:var(--f-mono);font-size:var(--fs-xs);color:var(--tx-2)}
+.due-cell{font-size:var(--fs-xs);color:var(--tx-2);font-family:var(--f-mono)}
+.row-act{display:flex;gap:2px;opacity:0;transition:opacity var(--t-fast)}
+tbody tr:hover .row-act{opacity:1}
+.mini-btn{width:26px;height:26px;border-radius:var(--r-sm);display:grid;place-items:center;color:var(--tx-3)}
+.mini-btn:hover{background:var(--bg-sunken);color:var(--tx-1)}
+.mini-btn svg{stroke:currentColor}
+input[type=checkbox]{
+  width:15px;height:15px;accent-color:var(--ac);cursor:pointer;border-radius:4px;
+}
+.bulk-bar{
+  display:none;align-items:center;gap:var(--s3);
+  background:var(--ac-soft);border:1px solid var(--ac-soft-2);border-radius:var(--r-md);
+  padding:var(--s2) var(--s4);margin-bottom:var(--s3);font-size:var(--fs-sm);color:var(--ac);font-weight:600;
+}
+.bulk-bar.on{display:flex}
+.bulk-bar .spacer{flex:1}
+
+/* ============ P3 复习 ============ */
+.review-wrap{max-width:600px;margin:0 auto;padding:var(--s4) 0}
+.rv-progress{display:flex;align-items:center;gap:var(--s3);margin-bottom:var(--s5)}
+.rv-count{font-size:var(--fs-sm);color:var(--tx-2);white-space:nowrap}
+.rv-count b{color:var(--tx-1);font-family:var(--f-mono);font-size:var(--fs-h3)}
+.rv-bar{flex:1;height:6px;border-radius:99px;background:var(--bg-sunken);overflow:hidden}
+.rv-fill{height:100%;width:22%;border-radius:99px;background:var(--ac);transition:width var(--t-slow)}
+.rv-remain{font-size:var(--fs-xs);color:var(--tx-3);white-space:nowrap}
+
+.flip{perspective:1600px;height:340px;cursor:pointer;margin-bottom:var(--s5)}
+.flip-inner{
+  position:relative;width:100%;height:100%;transition:transform 480ms cubic-bezier(.32,.72,.3,1);
+  transform-style:preserve-3d;
+}
+.flip.on .flip-inner{transform:rotateY(180deg)}
+.face{
+  position:absolute;inset:0;backface-visibility:hidden;-webkit-backface-visibility:hidden;
+  background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--r-xl);
+  box-shadow:var(--sh-2);display:flex;flex-direction:column;
+  align-items:center;justify-content:center;padding:var(--s8);text-align:center;
+}
+.face-back{transform:rotateY(180deg);justify-content:flex-start;padding:var(--s6);overflow-y:auto}
+.face-tag{
+  position:absolute;top:var(--s4);left:var(--s4);
+  display:flex;align-items:center;gap:6px;font-size:var(--fs-2xs);font-weight:700;color:var(--tx-3);
+  letter-spacing:.05em;text-transform:uppercase;
+}
+.face-hint{position:absolute;bottom:var(--s4);left:0;right:0;font-size:var(--fs-xs);color:var(--tx-3)}
+.rv-word{font-family:var(--f-serif);font-size:44px;font-weight:600;letter-spacing:-.02em;line-height:1.15}
+.rv-ph{font-family:var(--f-mono);font-size:15px;color:var(--tx-2);margin-top:var(--s3)}
+.rv-meta{margin-top:var(--s5);display:flex;gap:var(--s2);flex-wrap:wrap;justify-content:center}
+.rv-cn{font-size:16px;line-height:1.9;margin-bottom:var(--s3);text-align:left;width:100%}
+.rv-en{font-family:var(--f-serif);font-size:14px;line-height:1.7;color:var(--tx-2);text-align:left;width:100%;
+  padding-left:var(--s3);border-left:2px solid var(--ac-soft-2)}
+.rv-exch{width:100%;margin-top:var(--s4);padding-top:var(--s4);border-top:1px solid var(--border);
+  display:flex;flex-wrap:wrap;gap:var(--s2) var(--s4);text-align:left}
+.rv-exch div{font-size:var(--fs-xs);color:var(--tx-3)}
+.rv-exch b{font-family:var(--f-mono);color:var(--tx-1);font-weight:600;margin-left:5px}
+
+.grade-row{display:grid;grid-template-columns:repeat(4,1fr);gap:var(--s2)}
+.grade-btn{
+  height:58px;border-radius:var(--r-lg);border:1px solid var(--border);background:var(--bg-surface);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
+  transition:all var(--t-fast);box-shadow:var(--sh-1);
+}
+.grade-btn .lb{font-size:var(--fs-h3);font-weight:650;color:var(--tx-1)}
+.grade-btn .kb{font-size:10px;color:var(--tx-3);font-family:var(--f-mono)}
+.grade-btn .iv{font-size:10px;color:var(--tx-3)}
+.grade-btn:hover{transform:translateY(-2px);box-shadow:var(--sh-2);border-color:var(--border-strong)}
+.g-again:hover{background:var(--danger-soft);border-color:var(--danger)}
+.g-again:hover .lb{color:var(--danger)}
+.g-hard:hover{background:var(--warn-soft);border-color:var(--warn)}
+.g-hard:hover .lb{color:var(--warn)}
+.g-good:hover{background:var(--ac-soft);border-color:var(--ac)}
+.g-good:hover .lb{color:var(--ac)}
+.g-easy:hover{background:var(--ok-soft);border-color:var(--ok)}
+.g-easy:hover .lb{color:var(--ok)}
+.rv-foot{display:flex;align-items:center;justify-content:center;gap:var(--s4);margin-top:var(--s5)}
+.rv-foot button{font-size:var(--fs-xs);color:var(--tx-3);display:flex;align-items:center;gap:5px}
+.rv-foot button:hover{color:var(--tx-1)}
+.review-done{text-align:center;padding:var(--s12) 0}
+.done-mark{width:64px;height:64px;border-radius:50%;background:var(--ok-soft);display:grid;place-items:center;margin:0 auto var(--s4)}
+.done-mark svg{stroke:var(--ok)}
+
+/* ============ P4 统计 ============ */
+.stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:var(--s3);margin-bottom:var(--s5)}
+@media(max-width:1080px){.stat-grid{grid-template-columns:repeat(2,1fr)}}
+.stat-card{background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--r-lg);padding:var(--s4);box-shadow:var(--sh-1)}
+.stat-card .k{font-size:var(--fs-xs);color:var(--tx-3);font-weight:600;display:flex;align-items:center;gap:6px}
+.stat-card .v{font-family:var(--f-mono);font-size:28px;font-weight:700;letter-spacing:-.02em;margin-top:var(--s2);line-height:1}
+.stat-card .d{font-size:var(--fs-2xs);margin-top:6px;color:var(--tx-3)}
+.stat-card .d.up{color:var(--ok)}
+.stat-card .d.dn{color:var(--danger)}
+.two-col{display:grid;grid-template-columns:1.35fr 1fr;gap:var(--s5)}
+@media(max-width:1080px){.two-col{grid-template-columns:1fr}}
+.chart-legend{display:flex;gap:var(--s4);flex-wrap:wrap;margin-top:var(--s3)}
+.lg{display:flex;align-items:center;gap:6px;font-size:var(--fs-xs);color:var(--tx-2)}
+.lg i{width:9px;height:9px;border-radius:3px;display:block}
+.donut-row{display:flex;align-items:center;gap:var(--s5);flex-wrap:wrap}
+.donut-legend{flex:1;min-width:150px;display:flex;flex-direction:column;gap:var(--s2)}
+.dl-row{display:flex;align-items:center;gap:var(--s2);font-size:var(--fs-sm)}
+.dl-row .v{margin-left:auto;font-family:var(--f-mono);font-weight:650}
+.heat{display:grid;grid-template-columns:repeat(18,1fr);gap:3px;margin-top:var(--s2)}
+.heat i{aspect-ratio:1;border-radius:2.5px;background:var(--bg-sunken);display:block}
+.heat i.l1{background:var(--ac-soft-2)}
+.heat i.l2{background:#7BCDBB}
+.heat i.l3{background:var(--ac)}
+.heat i.today{box-shadow:0 0 0 2px var(--tx-1)}
+.heat-foot{display:flex;justify-content:space-between;font-size:var(--fs-2xs);color:var(--tx-3);margin-top:var(--s2)}
+
+/* ============ P5 导出 ============ */
+.exp-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:var(--s4);margin-bottom:var(--s5)}
+@media(max-width:1000px){.exp-grid{grid-template-columns:1fr}}
+.exp-card{background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--r-lg);padding:var(--s5);box-shadow:var(--sh-1);transition:border-color var(--t-base),box-shadow var(--t-base)}
+.exp-card:hover{border-color:var(--border-strong);box-shadow:var(--sh-2)}
+.exp-card.pick{border-color:var(--ac);box-shadow:0 0 0 3px var(--ac-ring)}
+.exp-ic{width:40px;height:40px;border-radius:var(--r-md);background:var(--ac-soft);display:grid;place-items:center;margin-bottom:var(--s3)}
+.exp-ic svg{stroke:var(--ac)}
+.exp-card h3{font-size:var(--fs-h2);font-weight:650}
+.exp-card .sub{font-size:var(--fs-xs);color:var(--tx-3);margin-top:2px}
+.exp-card .desc{font-size:var(--fs-sm);color:var(--tx-2);line-height:1.75;margin:var(--s3) 0 var(--s4)}
+.opt-row{display:flex;align-items:center;justify-content:space-between;padding:var(--s3) 0;border-top:1px solid var(--border)}
+.opt-row:first-of-type{border-top:none}
+.opt-row .lb{font-size:var(--fs-sm)}
+.opt-row .sub{font-size:var(--fs-xs);color:var(--tx-3);margin-top:1px}
+.switch{width:38px;height:22px;border-radius:99px;background:var(--bg-sunken);position:relative;transition:background var(--t-fast);flex:0 0 38px}
+.switch.on{background:var(--ac)}
+.switch i{position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25);transition:transform var(--t-base)}
+.switch.on i{transform:translateX(16px)}
+.progress{height:6px;border-radius:99px;background:var(--bg-sunken);overflow:hidden;margin-top:var(--s3)}
+.progress i{display:block;height:100%;width:0;border-radius:99px;background:var(--ac);transition:width 200ms}
+.lock{font-size:var(--fs-2xs);color:var(--tx-3);background:var(--bg-sunken);padding:2px 7px;border-radius:var(--r-full);font-weight:600}
+
+/* ============ P6 设置 ============ */
+.set-group{margin-bottom:var(--s5)}
+.set-card{background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--r-lg);overflow:hidden;box-shadow:var(--sh-1)}
+.set-row{display:flex;align-items:center;gap:var(--s4);padding:var(--s4) var(--s5);border-bottom:1px solid var(--border)}
+.set-row:last-child{border-bottom:none}
+.set-row .info{flex:1;min-width:0}
+.set-row .lb{font-size:var(--fs-h3);font-weight:600}
+.set-row .sub{font-size:var(--fs-xs);color:var(--tx-3);margin-top:2px;line-height:1.6}
+.set-row .ctl{flex:0 0 auto}
+.txt-in{
+  height:34px;border:1px solid var(--border);border-radius:var(--r-md);background:var(--bg-app);
+  padding:0 var(--s3);font-size:var(--fs-sm);width:260px;font-family:var(--f-mono);
+}
+.txt-in:focus{outline:none;border-color:var(--ac);box-shadow:0 0 0 3px var(--ac-ring)}
+.theme-sel{display:flex;gap:6px;background:var(--bg-app);border:1px solid var(--border);border-radius:var(--r-md);padding:3px}
+.theme-sel button{height:28px;padding:0 12px;border-radius:var(--r-sm);font-size:var(--fs-sm);font-weight:600;color:var(--tx-2)}
+.theme-sel button.on{background:var(--bg-surface);color:var(--tx-1);box-shadow:var(--sh-1)}
+[data-theme="dark"] .theme-sel button.on{background:var(--bg-raised)}
+.path-in{display:flex;gap:var(--s2);align-items:center}
+.path-in .txt-in{width:300px}
+
+/* ============ 划词迷你窗 ============ */
+.mini{
+  position:fixed;right:40px;bottom:40px;width:352px;
+  background:var(--bg-surface);border:1px solid var(--border-strong);
+  border-radius:var(--r-xl);box-shadow:var(--sh-4);overflow:hidden;
+  transform:translateY(16px) scale(.96);opacity:0;pointer-events:none;
+  transition:transform var(--t-slow),opacity var(--t-base);z-index:50;
+}
+.mini.on{transform:none;opacity:1;pointer-events:auto}
+.mini-top{
+  height:34px;display:flex;align-items:center;gap:var(--s2);padding:0 var(--s3);
+  background:var(--bg-raised);border-bottom:1px solid var(--border);
+  font-size:var(--fs-2xs);color:var(--tx-3);font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+}
+.mini-top .x{margin-left:auto;width:22px;height:22px;border-radius:4px;display:grid;place-items:center;color:var(--tx-3)}
+.mini-top .x:hover{background:var(--bg-sunken);color:var(--tx-1)}
+.mini-top .x svg{stroke:currentColor}
+.mini-body{padding:var(--s4)}
+.mini-word{display:flex;align-items:baseline;gap:var(--s2);flex-wrap:wrap}
+.mini-word .w{font-family:var(--f-serif);font-size:23px;font-weight:600;letter-spacing:-.01em}
+.mini-word .p{font-family:var(--f-mono);font-size:var(--fs-xs);color:var(--tx-2)}
+.mini-def{font-size:var(--fs-sm);line-height:1.75;color:var(--tx-1);margin-top:var(--s2)}
+.mini-en{font-family:var(--f-serif);font-size:var(--fs-xs);color:var(--tx-2);line-height:1.6;margin-top:6px}
+.mini-act{display:flex;gap:var(--s2);margin-top:var(--s4)}
+.mini-act .btn{flex:1}
+
+/* ============ Toast ============ */
+.toasts{position:fixed;bottom:28px;left:50%;transform:translateX(-50%);display:flex;flex-direction:column;gap:var(--s2);z-index:100;align-items:center}
+.toast{
+  background:var(--tx-1);color:var(--bg-surface);
+  padding:9px 16px;border-radius:var(--r-md);font-size:var(--fs-sm);font-weight:500;
+  box-shadow:var(--sh-3);display:flex;align-items:center;gap:var(--s2);
+  animation:tin var(--t-slow);white-space:nowrap;
+}
+@keyframes tin{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+.toast.out{animation:tout 200ms forwards}
+@keyframes tout{to{opacity:0;transform:translateY(8px)}}
+.toast svg{stroke:var(--bg-surface)}
+
+.note-bar{
+  display:flex;align-items:center;gap:var(--s2);background:var(--info-soft);border:1px solid transparent;
+  border-radius:var(--r-md);padding:var(--s3) var(--s4);font-size:var(--fs-sm);color:var(--tx-1);margin-bottom:var(--s5);
+}
+.note-bar svg{stroke:var(--info);flex:0 0 17px}
+.note-bar b{color:var(--info)}
+
+
+/* ===== 导入区 ===== */
+.imp-drop{margin-top:var(--s4);border:2px dashed var(--border-strong);border-radius:var(--r-lg);
+  padding:var(--s8) var(--s5);text-align:center;cursor:pointer;transition:border-color var(--t-base),background var(--t-base)}
+.imp-drop:hover{border-color:var(--ac);background:var(--ac-soft)}
+.imp-drop svg{stroke:var(--tx-3)}
+.imp-drop:hover svg{stroke:var(--ac)}
+.imp-t{font-size:var(--fs-h3);margin-top:var(--s3)}
+.imp-s{font-size:var(--fs-xs);color:var(--tx-3);margin-top:6px}
+.imp-safe{display:flex;gap:8px;align-items:center;margin-top:var(--s3);font-size:var(--fs-xs);color:var(--tx-2)}
+.imp-safe svg{stroke:var(--ok);flex:0 0 15px}
+.imp-nums{display:flex;gap:var(--s3);margin:var(--s4) 0}
+.imp-num{flex:1;background:var(--bg-sunken);border-radius:10px;padding:var(--s3) var(--s4)}
+.imp-num b{font-size:22px;display:block;line-height:1.2}
+.imp-num span{font-size:var(--fs-xs);color:var(--tx-2)}
+.imp-num.warn b{color:var(--warn)}
+.imp-opts{display:flex;gap:var(--s3)}
+.imp-opt{flex:1;border:1px solid var(--border);border-radius:10px;padding:var(--s3) var(--s4);cursor:pointer;transition:border-color var(--t-base)}
+.imp-opt:hover{border-color:var(--ac)}
+.imp-opt.on{border-color:var(--ac);background:var(--ac-soft);box-shadow:0 0 0 1px var(--ac)}
+.imp-opt b{display:block;font-size:var(--fs-sm)}
+.imp-opt span{font-size:var(--fs-xs);color:var(--tx-2)}
+.imp-warn{display:none;margin-top:var(--s3);padding:var(--s2) var(--s3);border-radius:8px;background:var(--danger-soft);color:var(--danger);font-size:var(--fs-xs)}
+.imp-warn.on{display:block}
+
+/* ===== 短语集 idioms ===== */
+.idm-list{display:flex;flex-direction:column;gap:var(--s3)}
+.idm-row{display:flex;align-items:center;gap:var(--s4);padding:14px var(--s4);border:1px solid var(--border);border-radius:12px;background:var(--bg-surface);cursor:pointer;transition:border-color .15s, box-shadow .15s}
+.idm-row:hover{border-color:var(--ac);box-shadow:var(--sh-2)}
+.idm-title{font-family:var(--f-serif);font-size:16px;font-weight:700;color:var(--tx-1)}
+.idm-lit{color:var(--tx-3);font-size:12px;font-weight:400;margin-left:var(--s2)}
+.idm-meaning{color:var(--tx-2);font-size:13px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.idm-num{color:var(--tx-3);font-size:12px;display:flex;align-items:center;gap:4px}
+.modal-mask{position:fixed;inset:0;background:rgba(24,28,24,.38);backdrop-filter:blur(2px);z-index:90;display:none;align-items:center;justify-content:center}
+.modal-mask.on{display:flex}
+.idm-card{width:660px;max-height:82vh;overflow:auto;background:var(--bg-surface);border-radius:16px;box-shadow:var(--sh-4);padding:var(--s6)}
+.idm-card h2{font-family:var(--f-serif);font-size:26px;margin:0;color:var(--tx-1)}
+.idm-core{background:var(--ac-soft);border-radius:10px;padding:var(--s3) var(--s4);font-size:14px;font-weight:600;color:var(--tx-1);margin:var(--s4) 0}
+.idm-sec{margin-top:var(--s5)}
+.idm-sec h4{margin:0 0 var(--s2);font-size:12px;letter-spacing:.08em;color:var(--tx-3);text-transform:uppercase}
+.idm-origin{border-left:3px solid var(--ac);padding:var(--s1) 0 var(--s1) var(--s4);font-family:var(--f-serif);color:var(--tx-2);font-size:14px;line-height:1.8}
+.ex-item{padding:var(--s3) 0;border-bottom:1px dashed var(--border)}
+.ex-item:last-child{border-bottom:none}
+.ex-en{font-size:14px;color:var(--tx-1);display:flex;align-items:flex-start;gap:var(--s2)}
+.ex-zh{font-size:13px;color:var(--tx-2);margin-top:2px}
+.ex-speak{border:none;background:none;color:var(--tx-3);cursor:pointer;padding:0;margin-top:2px}
+.ex-speak:hover{color:var(--ac)}
+.frm-grid{display:flex;flex-direction:column;gap:var(--s4)}
+.frm-label{font-size:13px;font-weight:600;color:var(--tx-1);display:block;margin-bottom:6px}
+.frm-label .opt{color:var(--tx-3);font-weight:400;font-size:12px}
+.frm-hint{font-size:12px;color:var(--tx-3);background:var(--bg-sunken);border-radius:8px;padding:var(--s2) var(--s3);line-height:1.6}
+.txt-area{width:100%;box-sizing:border-box;min-height:64px;padding:9px 12px;border:1px solid var(--border-strong);border-radius:8px;background:var(--bg-surface);color:var(--tx-1);font:inherit;font-size:13px;resize:vertical}
+.txt-area:focus{outline:none;border-color:var(--ac);box-shadow:0 0 0 3px var(--ac-ring)}
+.ex-edit{display:flex;gap:var(--s2);align-items:flex-start}
+.ex-edit .txt-in{flex:1}
+</style>
+</head>
+<body data-page-node-id="g4uCBQoBj2AjMSX8JE4JAq">
+
+<div class="win" data-page-node-id="0Cb7vAKGgn49THkJwsMExx">
+  <!-- 标题栏 -->
+  <div class="titlebar" data-page-node-id="4V31krsyibALlbrvoxEBaA">
+    <div class="tb-left" data-page-node-id="NMR9cEBZ8KxxknNHr1KpdE">
+      <div class="tb-dot" data-page-node-id="apJ7wTB1a7bZkHA7vSrV9M"><svg width="12" height="12" viewBox="0 0 14 14" fill="none" data-page-node-id="ZHc6gHJU4lBjVvXyandjpX"><circle cx="7" cy="7" r="6" stroke="#0E7C6B" stroke-width="1.6" data-page-node-id="CxpQ1BH8oLv9h6juqoN3ee"/><circle cx="7" cy="7" r="2.6" fill="#0E7C6B" data-page-node-id="NRmQxudVnBXTHmOGR9nzdc"/></svg></div>
+      <span class="tb-title" data-page-node-id="4DtjLlCN3YkGtE0zrPu3d9">Lupa 璐帕 — 看清词，留住词，归你所有</span>
+    </div>
+    <div class="tb-right" data-page-node-id="Uyp4CfCE8R3fscpfmJ7G03">
+      <button class="tb-btn" title="最小化" data-page-node-id="iH7QpuLzsVGoSvWu5v2m98"><svg width="10" height="10" viewBox="0 0 10 10" stroke-width="1.2" data-page-node-id="PBdIdFiosspb5btlVIMbjF"><path d="M0 5h10" data-page-node-id="vDYDoDVGfIHvF35XOVa6dS"/></svg></button>
+      <button class="tb-btn" title="最大化" data-page-node-id="FIIbtsmiyECwbINPrCNC4Z"><svg width="10" height="10" viewBox="0 0 10 10" stroke-width="1.2" data-page-node-id="KUZvcU0uUHEzkji2ooBnSi"><rect x=".6" y=".6" width="8.8" height="8.8" fill="none" data-page-node-id="QIWrnx041CPITEgSv5ylxa"/></svg></button>
+      <button class="tb-btn close" title="关闭" data-page-node-id="Cjkg528MOZwsMdupUvlHQU"><svg width="10" height="10" viewBox="0 0 10 10" stroke-width="1.2" data-page-node-id="TSHvBabQPjf8oisdOnuBQC"><path d="M0 0l10 10M10 0L0 10" data-page-node-id="zuzCsRvAIdG56XdjsnqKcM"/></svg></button>
+    </div>
+  </div>
+
+  <div class="app-body" data-page-node-id="0Y5esLHzEr66r0S5Lj3toR">
+    <!-- 侧边导航 -->
+    <aside class="nav" data-page-node-id="aLQPEiAbWwpbA31Lv2aEOF">
+      <div class="brand" data-page-node-id="UexFHF7B6KLPXCwoTJFA4d">
+        <div class="brand-mark" data-page-node-id="h9gCX97NqVpiobdTtBo4ej">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" data-page-node-id="4g7IRxgzpioE544Xdn2s1Y">
+            <circle cx="10.5" cy="10.5" r="6.5" stroke="#fff" stroke-width="2.2" data-page-node-id="UoFV4DSkfi1Gd4VRfjvXPe"/>
+            <path d="M15.5 15.5L21 21" stroke="#fff" stroke-width="2.6" stroke-linecap="round" data-page-node-id="dlcasxTVxq4VkuSvh5UZnh"/>
+          </svg>
+        </div>
+        <div data-page-node-id="cWlLTPKJSbaEI84EuOnwq3">
+          <div class="brand-name" data-page-node-id="sTC25t55B5y4fwsqMduTBH">Lupa</div>
+          <div class="brand-sub" data-page-node-id="rSJUViwqffTJyKIVgU70XY">璐帕</div>
+        </div>
+      </div>
+
+      <div class="nav-group" data-page-node-id="d4AFHhNaZG9P39D8ExqPsK">
+        <div class="nav-label" data-page-node-id="U0d3DDhAeQqFz2QUnXNxEg">学习</div>
+        <button class="nav-item on" data-page="search" data-page-node-id="qXC4C6bJhB4zhHeC7jwRo3">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke-width="1.9" stroke-linecap="round" data-page-node-id="pD2KFWTw6nskcxD9dPU58G">
+            <circle cx="11" cy="11" r="7" data-page-node-id="FWAE1sY6dyggEC7xQVsPkJ"/><path d="M16.5 16.5L21 21" data-page-node-id="1VDPCTqURgNHdcT0jS5dE2"/>
+          </svg>
+          查词<span class="nav-kbd" data-page-node-id="KgqNPgX6zEGjF64J6CbKJ7">Ctrl F</span>
+        </button>
+        <button class="nav-item" data-page="notebook" data-page-node-id="un5D1huqtlpUNbq6OrnJqt">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" data-page-node-id="VSF2JbNc7HJDxWOKekSeyP">
+            <path d="M4 5.5A1.5 1.5 0 015.5 4H18a1 1 0 011 1v14.5" data-page-node-id="lFByEoRQyOeXzn5LRrvB7z"/><path d="M4 5.5v13A1.5 1.5 0 005.5 20H19" data-page-node-id="7oLOqWIV30OASsEHjxGC0r"/><path d="M8 4v16" data-page-node-id="HOkC7E9fuwzwhCCQnHA4AW"/>
+          </svg>
+          生词本<span class="nav-kbd" data-page-node-id="QCAEt7IP6cWRNJMrMGCbHB">Ctrl B</span>
+        </button>
+        <button class="nav-item" data-page="idioms" data-page-node-id="M1u6TyXLrvjiq3r11vzC0o">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" data-page-node-id="SmRxzVAWwPT6FHLGgBe6z7">
+            <path d="M10 5.5c-2.5.5-4 2.5-4 5 0 1.8 1.2 3 2.8 3 1.5 0 2.6-1.1 2.6-2.6 0-1.4-1-2.4-2.3-2.4-.3 0-.6 0-.8.1.3-1.5 1.4-2.6 2.7-3" data-page-node-id="kmujQbQvHS0H1wUz2rpgyQ"/>
+            <path d="M17.5 5.5c-2.5.5-4 2.5-4 5 0 1.8 1.2 3 2.8 3 1.5 0 2.6-1.1 2.6-2.6 0-1.4-1-2.4-2.3-2.4-.3 0-.6 0-.8.1.3-1.5 1.4-2.6 2.7-3" data-page-node-id="PrMDoXU7aJMuLTP42QXm7q"/>
+          </svg>
+          短语集<span class="nav-kbd" data-page-node-id="0PeCGQy5nEHrjhFRBcNOxL">Ctrl I</span>
+        </button>
+        <button class="nav-item" data-page="review" data-page-node-id="KBcn1gzfuzqM5KOGxwV0f3">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" data-page-node-id="6k5KJ7C88HnnXjqenCLRGc">
+            <rect x="2.5" y="6" width="19" height="13" rx="2.5" data-page-node-id="kJyf8nJ3ROwBEG05zvdTlw"/><path d="M8 3v4M16 3v4" data-page-node-id="dhQcKiygZkNRbvfivONWVO"/><path d="M8.5 13.5l2.2 2.2 4.3-4.3" data-page-node-id="OYC41rmqL5r8xQmVO6qTHn"/>
+          </svg>
+          复习<span class="nav-badge" data-page-node-id="dtvDWG96fiY0xmGmwF1WjA">27</span>
+        </button>
+      </div>
+
+      <div class="nav-group" style="margin-top:var(--s4)" data-page-node-id="4OtRvwUcU0aqKCapEArJvK">
+        <div class="nav-label" data-page-node-id="bKZlzeuvWRuMiSINHkLgtP">数据</div>
+        <button class="nav-item" data-page="stats" data-page-node-id="NEcNpk5lfyu5gVYUjf67ib">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke-width="1.9" stroke-linecap="round" data-page-node-id="sl7rk18kAJBZbOeEKp51AA">
+            <path d="M4 20V10M10 20V4M16 20v-7M22 20H2" data-page-node-id="oTj1hKCzhE6Wy59bEPsw1x"/>
+          </svg>
+          统计<span class="nav-kbd" data-page-node-id="b6jgD1yAnS6ud6EeQr4yYE">Ctrl T</span>
+        </button>
+        <button class="nav-item" data-page="export" data-page-node-id="TgswDv37onVV56fUzhK5xt">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" data-page-node-id="9EqpavkM45zBFjfy7jzfM7">
+            <path d="M12 3v11" data-page-node-id="JBQOwgijS3iHYVZTLKFOup"/><path d="M8 10.5l4 4 4-4" data-page-node-id="XGdbINl6UJjJaBZvHMfmJI"/><path d="M4 17v2.5A1.5 1.5 0 005.5 21h13a1.5 1.5 0 001.5-1.5V17" data-page-node-id="YjTu46fazcsKUSDKmJwykE"/>
+          </svg>
+          数据<span class="nav-kbd" data-page-node-id="W9phFkACnghCxQkjHm5oNB">Ctrl E</span>
+        </button>
+      </div>
+
+      <div class="nav-spacer" data-page-node-id="7t2x67XompORug7pDjDBWh"></div>
+      <div class="nav-foot" data-page-node-id="TDxAtGc18kBLjeLyifd1BX">
+        <button class="nav-item" data-page="settings" data-page-node-id="p6OqpS8VUC4NTRnJqrFSyj">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" data-page-node-id="qshCCt9DXftlGMGBPx9yCZ">
+            <circle cx="12" cy="12" r="3" data-page-node-id="K6XcJtxefkI5sOyJ5AguMp"/><path d="M19.4 15a1.6 1.6 0 00.3 1.8l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.6 1.6 0 00-1.8-.3 1.6 1.6 0 00-1 1.5V21a2 2 0 11-4 0v-.1A1.6 1.6 0 008.9 19a1.6 1.6 0 00-1.8.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.6 1.6 0 00.3-1.8 1.6 1.6 0 00-1.5-1H3a2 2 0 110-4h.1A1.6 1.6 0 004.6 8.9a1.6 1.6 0 00-.3-1.8l-.1-.1a2 2 0 112.8-2.8l.1.1a1.6 1.6 0 001.8.3H9a1.6 1.6 0 001-1.5V3a2 2 0 114 0v.1a1.6 1.6 0 001 1.5 1.6 1.6 0 001.8-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.6 1.6 0 00-.3 1.8V9a1.6 1.6 0 001.5 1H21a2 2 0 110 4h-.1a1.6 1.6 0 00-1.5 1z" data-page-node-id="X7evbuLs8AleCb2tpCdBn0"/>
+          </svg>
+          设置
+        </button>
+        <button class="nav-item" id="miniDemo" data-page-node-id="4QVVFUACmW1pnlUNg90DK8">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" data-page-node-id="RqHwQo1U81aDDh4sS9R1k9">
+            <rect x="3" y="5" width="18" height="12" rx="2" data-page-node-id="MOPDTBlRoCtNwnXbFcCF9r"/><path d="M9 21h6M12 17v4" data-page-node-id="L4TxYT2slvsrdMRds2Uxgu"/>
+          </svg>
+          划词窗<span class="nav-kbd" data-page-node-id="zi7zqgbuyvTZK2ICMODXNL">Ctrl ⇧ L</span>
+        </button>
+      </div>
+    </aside>
+
+    <!-- 主区 -->
+    <div class="main" data-page-node-id="bdXbrovMNzrxcorFUl31uf">
+      <div class="topbar" data-page-node-id="BbXF4nDubhf0YbBpMNz7wA">
+        <div class="search" id="searchBox" data-page-node-id="ek0TCvnYRTo3EGeY5ZpwG2">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" data-page-node-id="ObhBZhw6Pg6uK2xiVyFBZS">
+            <circle cx="11" cy="11" r="7" data-page-node-id="Wkl2xi8PdVobYTsx2d2tpM"/><path d="M16.5 16.5L21 21" data-page-node-id="CA8oCeZGHTGBTNL7HULHCv"/>
+          </svg>
+          <input id="q" placeholder="输入单词，回车查询…" autocomplete="off" spellcheck="false" data-page-node-id="D1rebX9OpeseV8mih9ati7">
+          <button class="search-clear" id="qClear" title="清空" data-page-node-id="CiWO1smWdBOyqR6oZO7og8">&times;</button>
+          <span class="kbd" data-page-node-id="lEmlfIPiGfDo4q1oH0n5uU">Ctrl F</span>
+        </div>
+        <div class="topbar-right" data-page-node-id="FYDWJRlQe0pNfzJLGb5yJp">
+          <button class="icon-btn" id="themeBtn" title="切换深色 / 浅色" data-page-node-id="VEXQcclDPOzfaGp8coaNEu">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" data-page-node-id="qm1q4Juwg8RxNuhwdex0Cp">
+              <path d="M21 12.8A9 9 0 1111.2 3a7 7 0 009.8 9.8z" data-page-node-id="hED3Btv7jBW3cb8jIy299j"/>
+            </svg>
+          </button>
+          <div class="divider-v" data-page-node-id="2CP7lCEbYzwJ1fDuQJ8EpP"></div>
+          <button class="btn btn-primary" id="quickAdd" data-page-node-id="KSnwgO7FPmRZxBVVMt0XOz">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round" data-page-node-id="NZJ3OwFgsSxWQ0szQRPx9V"><path d="M12 5v14M5 12h14" data-page-node-id="HYVar4G7yBoPZG1YhTOea1"/></svg>
+            加入生词本
+          </button>
+        </div>
+      </div>
+
+      <div class="content" data-page-node-id="dV9Inhs4SWtrytpQeDlJ3L">
+
+        <!-- ========== P1 查词 ========== -->
+        <section class="page on" id="page-search" data-page-node-id="PUdECAWmMkBVikIiyf70Pl">
+          <div class="note-bar" data-page-node-id="EnUxohGgCcIWvovCUBLy3p">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke-width="1.9" stroke-linecap="round" data-page-node-id="ZNBQPort0zfxkuSURJDxf0"><circle cx="12" cy="12" r="9" data-page-node-id="f88Tr6YS1FvEgBtQje8M3l"/><path d="M12 16v-4M12 8h.01" data-page-node-id="dyCADuEUoLHWlb2UkX3TxC"/></svg>
+            <span data-page-node-id="rhK9nWB6KzFzluXqGqNA2f">原型可交互：搜索框输入 <b data-page-node-id="2VTyf7IZ3jv75G7blLQxkx">abandon</b> / <b data-page-node-id="NhyvoVQ9nX4iTkgbVwVuAt">resilient</b> / <b data-page-node-id="aWIOjkjVhHKnTpZaxsUoNE">nuanced</b> 回车查看结果，点星星收藏，点 US / UK 试发音。</span>
+          </div>
+          <div id="resultArea" data-page-node-id="8BYM6bTUbZCtMr9x05S9DS"></div>
+        </section>
+
+        <!-- ========== P2 生词本 ========== -->
+        <section class="page" id="page-notebook" data-page-node-id="AacAfOhZoR6jIw5nxIjsZw">
+          <div class="page-head" data-page-node-id="Wn97UL1PFZLnczBouxDpgd">
+            <h1 data-page-node-id="gQwUG4HKnmAXMnmqmGAwG3">生词本</h1>
+            <p data-page-node-id="ANuJ4JA8b5ayDMD3t8I6as">248 个词条 · 今日待复习 27 · 数据全部存在本地，随时导出</p>
+          </div>
+
+          <div class="bulk-bar" id="bulkBar" data-page-node-id="ke2v8cZvuR3wAClG8ahVYR">
+            已选 <b id="selCount" data-page-node-id="mWbwsRZds0Ryj1EA7TpRxx">0</b> 项
+            <span class="spacer" data-page-node-id="44juqyEhAaJ9JFlP77hpHL"></span>
+            <button class="btn btn-ghost" style="height:28px" data-page-node-id="VZkEDRkH3xWXDWEzq866ta">批量加标签</button>
+            <button class="btn btn-ghost" style="height:28px" data-page-node-id="uLvmWcVEWJVvZAv5wlGpsu">重置进度</button>
+            <button class="btn btn-danger" style="height:28px" id="bulkDel" data-page-node-id="P3r9SZL7V8SA84FnjQal3M">移出生词本</button>
+          </div>
+
+          <div class="toolbar" data-page-node-id="WSEhCGXm85iTTpcERZrvO8">
+            <div class="chips" id="filterChips" data-page-node-id="SgYBCvvui5HqG1vz5KnQk3">
+              <button class="chip on" data-page-node-id="QXBZdC0KUh3ISSfs4zjxHx">全部 <span class="n" data-page-node-id="mTIp9luLGwg2tB86HLRFnM">248</span></button>
+              <button class="chip" data-page-node-id="JLr81zCx52091b9O4mRNeK"><i class="dot st-due" data-page-node-id="W43C7O6NBL6Ls51VmDlymL"></i>待复习 <span class="n" data-page-node-id="AB7OZ1ezjZ5kk4KQYHgJtT">27</span></button>
+              <button class="chip" data-page-node-id="dU8phdg4EpdxNBlXBCcE2O"><i class="dot st-new" data-page-node-id="zmGR30PAA7IgR5hrGBENKF"></i>新词 <span class="n" data-page-node-id="6uWuIhNqHI1ZFGOCJk7DHN">63</span></button>
+              <button class="chip" data-page-node-id="kHVRugVd4pVWu2tQlkhZnN"><i class="dot st-learn" data-page-node-id="80SUDhIRThbtbebaJY02VM"></i>学习中 <span class="n" data-page-node-id="ICEtTCwuEjzyahnLJK083q">41</span></button>
+              <button class="chip" data-page-node-id="UEk7WFK9YIdQ0ZlRLBCeVC"><i class="dot st-review" data-page-node-id="kGctlvGjy0iPWKDG8hZlKd"></i>复习中 <span class="n" data-page-node-id="qOttG7Iirf2ZGiC4QADxtE">117</span></button>
+            </div>
+            <span class="spacer" style="flex:1" data-page-node-id="xTUs7vV7Ray4dsjkkv5RBj"></span>
+            <select class="sort-sel" data-page-node-id="roDApCbTlEkVvxg36HgLJs">
+              <option data-page-node-id="cVgRcRjGRUc7fM5myQflg6">最近添加</option>
+              <option data-page-node-id="gIESsr7Oj2Rvxqi4Ca3qG8">复习时间（近→远）</option>
+              <option data-page-node-id="AGEIHTxcLWoPfYMvBUMM1F">字母顺序 A→Z</option>
+              <option data-page-node-id="XQ4bcePnBkfMpzqnH7fyIo">词频 高→低</option>
+              <option data-page-node-id="K6QAgO9GcBBN02G7gMU7PP">忘记次数 多→少</option>
+            </select>
+            <button class="btn btn-ghost" data-page-node-id="pHbEhWWSMlouLRPxUYBhM2">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" data-page-node-id="bBL1GSw8SAAa1n0kkkAFCf"><path d="M4 6h16M7 12h10M10 18h4" data-page-node-id="9AT9dboQBuqUOmlDll8grE"/></svg>
+              显示
+            </button>
+          </div>
+
+          <div class="tbl-wrap" data-page-node-id="hwkLKroKxyZjZLqhngmmpE">
+            <table data-page-node-id="pITUW3gwAAN0wqPnNdTejJ">
+              <thead data-page-node-id="x55Qu6LPO4MIpvZrZqV2iG">
+                <tr data-page-node-id="6Fu6OZwfPbSYJgKocZscTD">
+                  <th style="width:38px" data-page-node-id="J0pWvfiVciEh2l1fiFBO3M"><input type="checkbox" id="ckAll" data-page-node-id="BHTFmFsNkNLT9o4gvJjPGS"></th>
+                  <th style="width:26%" data-page-node-id="zMrrEFpjURAcNdRKZDzh6S">单词</th>
+                  <th data-page-node-id="9NzRy2qhlJqsfzaF9CJtKk">释义</th>
+                  <th style="width:110px" data-page-node-id="ADTRQUAUnyUDqOmu9dWonz">状态</th>
+                  <th style="width:70px" data-page-node-id="MATCCRvIqifTz5dn6avo6y">间隔</th>
+                  <th style="width:118px" data-page-node-id="TkAgS7VDa0gDb7Ihgr9lr7">下次复习</th>
+                  <th style="width:130px" data-page-node-id="1dBMTj8y77uNst5bxgOX91">标签</th>
+                  <th style="width:76px" data-page-node-id="zEEWMj0GUDzJGJwKgGuVxh"></th>
+                </tr>
+              </thead>
+              <tbody id="nbBody" data-page-node-id="aJXSaum6y28gh869NrNMe2"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- ========== P3 复习 ========== -->
+        <section class="page" id="page-idioms" data-page-node-id="VvNKP5NFuvxbqO266XRxID">
+          <div class="page-head" data-page-node-id="zs15Gm92Ug7oEBVShXrGeG">
+            <h1 data-page-node-id="6DoYI74sCQMRzArMvACVcJ">短语集</h1>
+            <p id="idmSub" data-page-node-id="FuxAuHxSGT10lmY6HFL4FP">4 条短语 · 释义、起源、场景、例句一并归档，同样进复习队列</p>
+          </div>
+
+          <div class="toolbar" data-page-node-id="aOiJSQYLfKxRTfIPLuBNKd">
+            <div class="chips" id="idmChips" data-page-node-id="oniADORS83Gq9m3qHpAy6F">
+              <button class="chip on" data-f="all" data-page-node-id="gTKKC6wsg6Fv39HYZ974Jf">全部 <span class="n" data-page-node-id="CkEsY3PzAs9BP7qAgsaVo0">4</span></button>
+              <button class="chip" data-f="口语" data-page-node-id="iyd5IE6nQqvhFi0bV6kAmi"><i class="dot st-new" data-page-node-id="We3Cl8niMzndIZwz3T9Iho"></i>口语 <span class="n" data-page-node-id="jG7a0BGIYpClc4PA0x02wH">2</span></button>
+              <button class="chip" data-f="通用" data-page-node-id="uEIumoQTTvBxnOoMaHCq16"><i class="dot st-review" data-page-node-id="ImXGZpcXwCqrkueyViQiBb"></i>通用 <span class="n" data-page-node-id="WgZcJLd2Ys7EhEf01WRv93">2</span></button>
+            </div>
+            <span class="spacer" style="flex:1" data-page-node-id="ahpSvTjV93HXU5G4b4SqaL"></span>
+            <button class="btn btn-primary" id="idmNew" data-page-node-id="cxIqk7AbASsMp2S1zkN6F4">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" data-page-node-id="ZbI9nM9grRtEekjOOPY0mC"><path d="M12 5v14M5 12h14" data-page-node-id="FmZtvMvPGTWkEnYmL9ryr1"/></svg>
+              记录短语
+            </button>
+          </div>
+
+          <div class="idm-list" id="idmList" data-page-node-id="MWxWivFBvBULgbGBGTDpwA"></div>
+        </section>
+
+        <section class="page" id="page-review" data-page-node-id="rr5vorYqaV1Z88kE0ppdvs">
+          <div class="review-wrap" id="reviewArea" data-page-node-id="DDR0YKIRgLfz8AvYqnEF9v">
+            <div class="rv-progress" data-page-node-id="iaYNPxEOMXFjfnHxikGWvZ">
+              <span class="rv-count" data-page-node-id="SzGfHApraOO5N0ID2GQk78"><b data-page-node-id="cnOx8dAhzijwBazKvgrG0L">6</b> / 27</span>
+              <div class="rv-bar" data-page-node-id="P8XHXSWDQ3aKQBtGu4cNIP"><div class="rv-fill" id="rvFill" data-page-node-id="yHZ3GGwNTp6EXBXMklpVy3"></div></div>
+              <span class="rv-remain" data-page-node-id="EO14HFD1Dp72ubEaEAtslF">剩余 21</span>
+            </div>
+
+            <div class="flip" id="flipCard" data-page-node-id="XkRM2POPelW4egGmGgHUux">
+              <div class="flip-inner" data-page-node-id="JuUpl68imfJLNZt0FYBKJZ">
+                <div class="face face-front" data-page-node-id="ImNuL9kec1Pm2xMHeS4CqU">
+                  <div class="face-tag" data-page-node-id="V4uE3wSBz9ifNbZrBzcibN"><i class="dot st-review" data-page-node-id="Xmu3FDS5kKF1Rg5kTBnhcV"></i>复习中 · 间隔 7 天</div>
+                  <div class="rv-word" data-page-node-id="uQFA7rjuVNg5913K8dh6NK">nuanced</div>
+                  <div class="rv-ph" data-page-node-id="rabTNdDLznTWCtdoQjS0Hy">/ˈnuːɑːnst/</div>
+                  <div class="rv-meta" data-page-node-id="zwtMvtqGyzpzqyj44Fx7cN">
+                    <span class="badge b-ac" data-page-node-id="PpBGd98KlUWqE70PNszQWN">GRE</span>
+                    <span class="badge b-amber" data-page-node-id="v8aETRqEY7v4M92fq5tlFP">柯林斯 2 星</span>
+                  </div>
+                  <div class="face-hint" data-page-node-id="lEu34xbwGyHxb03DshN7xU">按 <span class="kbd" data-page-node-id="K70GELZKVkty5jw1jonHdo">空格</span> 或点击卡片显示释义</div>
+                </div>
+                <div class="face face-back" data-page-node-id="Ut5La3QdphtO3asLyGoYZP">
+                  <div class="face-tag" data-page-node-id="AhrQ2TR8EbV7AIUzdEEXMO"><i class="dot st-review" data-page-node-id="1W5Br60sBhTv0He2zngXBI"></i>释义</div>
+                  <div class="rv-cn" data-page-node-id="rSsaBwmDmDymkZaugPoVny">adj. 有细微差别的；微妙而精准的</div>
+                  <div class="rv-en" data-page-node-id="dVPaP1pxi5wT3q3iNPJLEn">made slightly different in appearance, meaning, or tone; characterized by subtle shades of meaning</div>
+                  <div class="rv-exch" data-page-node-id="L7JnyCwhvXPAHi2pI6reeI">
+                    <div data-page-node-id="GU3stCKeBSz1Db5OkxLDR1">比较级 <b data-page-node-id="z46YRtQs1bNrhZypPHDaB8">more nuanced</b></div>
+                    <div data-page-node-id="1jADZ5DD7Fe0x5umh5nuzi">最高级 <b data-page-node-id="qhlHTgRHHvaoHgthltXMdX">most nuanced</b></div>
+                    <div data-page-node-id="Vv3zuumbIDDRqkzrRU53Vj">词频 <b data-page-node-id="IpuKYvgWVdtQ4D2hQpVXQg">TOP 12.4%</b></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="grade-row" id="gradeRow" data-page-node-id="Lsp82mZbXzXZdI23TNCOMV">
+              <button class="grade-btn g-again" data-g="1" data-iv="明天再来" data-page-node-id="ttm67ISyDnKOq9DhyrCkXU"><span class="lb" data-page-node-id="LUveTBcc3RPWPeBshfnwbK">忘了</span><span class="iv" data-page-node-id="mo0SVWlfENM6NEHfeoyCoq">回到 1 天</span><span class="kb" data-page-node-id="SUkdBpqXClv1GfXrppNhUw">1</span></button>
+              <button class="grade-btn g-hard" data-g="2" data-iv="3 天后" data-page-node-id="xH8JjSYQHBx8oRNltUtkgf"><span class="lb" data-page-node-id="bjUuqwcexyGG44sVyAregc">困难</span><span class="iv" data-page-node-id="xa3OSibGgihLIiAEmx6N3n">3 天</span><span class="kb" data-page-node-id="rPjc9FW6GBiWPAJLtil6mB">2</span></button>
+              <button class="grade-btn g-good" data-g="3" data-iv="15 天后" data-page-node-id="o7A1n5LC13XUpHSBhyPAVK"><span class="lb" data-page-node-id="bG8ijoiI0ILeaszmh0FIa8">良好</span><span class="iv" data-page-node-id="KPhhAR9D58n74hVLXhsSeF">15 天</span><span class="kb" data-page-node-id="yvYFbSY18N3656mrY5TQzW">3</span></button>
+              <button class="grade-btn g-easy" data-g="4" data-iv="30 天后" data-page-node-id="CrdO00lPsbAORLSVffEHQa"><span class="lb" data-page-node-id="lwwoIeu5rfGbsKjdQCE8Dc">简单</span><span class="iv" data-page-node-id="6CpceH9oAF84GFi7tXqDIZ">30 天</span><span class="kb" data-page-node-id="rNLhAsYmeInhavFPzI8r2g">4</span></button>
+            </div>
+
+            <div class="rv-foot" data-page-node-id="Bk7Ndjxhc7O6jkakfAwvwn">
+              <button id="rvSpeak" data-page-node-id="2ocLyStwKj4fA3HPa5bcEO">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-page-node-id="a2kPn1XzeGlcXSHPGuUtbY"><path d="M11 5L6 9H2v6h4l5 4V5z" data-page-node-id="Gzsyj1oP5LQJi81tiO9jFM"/><path d="M15.5 8.5a5 5 0 010 7" data-page-node-id="3V2wNpBQGVYjCRCKBJWIfX"/></svg>
+                朗读 (空格长按)
+              </button>
+              <button data-skip data-page-node-id="euC0K3TfYJFOuidlezYSrQ">跳过 (S)</button>
+              <button data-quit data-page-node-id="BU1nose3eooeM8UjOkkAU8">结束本轮 (Q)</button>
+            </div>
+          </div>
+
+          <div class="review-done" id="reviewDone" style="display:none" data-page-node-id="rGvWQsfswpatdfFJaNQeSn">
+            <div class="done-mark" data-page-node-id="5CHGNtpM4mI3AnbZTyyb7p">
+              <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" data-page-node-id="YBBZMd7ters4oQCBfnDCKW"><path d="M20 6L9 17l-5-5" data-page-node-id="frUHs4Cczk0dAQYv9sZ3zs"/></svg>
+            </div>
+            <h2 style="font-size:var(--fs-h1);font-weight:650" data-page-node-id="3EZ7eBDNfPEHoFvaAffQJR">本轮复习完成</h2>
+            <p style="color:var(--tx-2);margin-top:var(--s2);font-size:var(--fs-sm)" data-page-node-id="4BMiu0oVEGFLBi2jvkBCim">答题 27 张 · 忘了 3 张 · 用时 8 分 12 秒</p>
+            <div style="display:flex;gap:var(--s2);justify-content:center;margin-top:var(--s5)" data-page-node-id="CoxxUieYYx1HFzYfuHnTCF">
+              <button class="btn btn-ghost btn-lg" id="rvRestart" data-page-node-id="njD3EtzWGAroIIzR9AB0AI">再来一轮</button>
+              <button class="btn btn-primary btn-lg" onclick="go('stats')" data-page-node-id="lBBadtBJx0CAgMaX0gy4OX">查看统计</button>
+            </div>
+          </div>
+        </section>
+
+        <!-- ========== P4 统计 ========== -->
+        <section class="page" id="page-stats" data-page-node-id="EvJIASRyc24NTfHKRtHDHI">
+          <div class="page-head" data-page-node-id="o6K9gsNIiAJQiB25qmyqRp">
+            <h1 data-page-node-id="CuTb56ixql4AL5zxqCcYNN">统计</h1>
+            <p data-page-node-id="jpUZhpU2nvBEHYGc32r9Ys">近 30 天学习概览 · 全部数据来自本地 SQLite，不出本机</p>
+          </div>
+
+          <div class="stat-grid" data-page-node-id="ZcNYi8dxHTUSLFkBpulV5v">
+            <div class="stat-card" data-page-node-id="7LegWkl0TFClqyruzXKxqq">
+              <div class="k" data-page-node-id="HzEbZKuXIWr6zOqgDAdQGm"><i class="dot st-review" data-page-node-id="0UXsF2ffeFpOuPrC8byBHc"></i>生词总量</div>
+              <div class="v" data-page-node-id="VFl2k0CskhudADhEwSOHxs">248</div>
+              <div class="d up" data-page-node-id="BdNslNJuBIVo4HILGtMVsJ">较上周 +36</div>
+            </div>
+            <div class="stat-card" data-page-node-id="UEnkHm4RMcyPdGdA40D3QH">
+              <div class="k" data-page-node-id="WWsEGqFC7JlITY67iCOcnR"><i class="dot st-due" data-page-node-id="7DtNs9nFGLgpfOFVS32si4"></i>今日待复习</div>
+              <div class="v" style="color:var(--danger)" data-page-node-id="aiRme3RnpEkoCNCgCQTPEE">27</div>
+              <div class="d" data-page-node-id="MFAVjaFHb6uqW9TfqWEi06">复习完约需 9 分钟</div>
+            </div>
+            <div class="stat-card" data-page-node-id="cVmNoLTCvvWZ4ktBlz0kmW">
+              <div class="k" data-page-node-id="BfomQGYvhmtRoXrd2aIIdb"><i class="dot st-learn" data-page-node-id="1Ds4hwujwSgB6Cui8SaVBC"></i>累计复习</div>
+              <div class="v" data-page-node-id="GhtB6scP91e9T2KyAYdyKN">1,842</div>
+              <div class="d" data-page-node-id="lXlinDM6HiUJW7IOueeMJ7">次 · 平均 retention 82%</div>
+            </div>
+            <div class="stat-card" data-page-node-id="BR7aK5EkxsZ4m7CnuNwOlC">
+              <div class="k" data-page-node-id="zXGqeQgt3JqFyPtxgoXm6b"><i class="dot st-new" data-page-node-id="9OBDsK1LaRKd27wMVPUeYB"></i>累计忘记</div>
+              <div class="v" data-page-node-id="H1iiBuFsy3TCkaARxOs46O">38</div>
+              <div class="d dn" data-page-node-id="aQZBQCbEOPXvZDjURP1IO7">占已学词 15.3%</div>
+            </div>
+          </div>
+
+          <div class="two-col" data-page-node-id="leDHXnJbbGOxz9N5UdAr2o">
+            <div class="card card-pad" data-page-node-id="pumvXoS00wBJfeNt0LIUZH">
+              <div class="sect-title" data-page-node-id="ywZ0JTWa9R5Y6AQR1zNEjx">近 30 天新增生词</div>
+              <svg width="100%" height="180" viewBox="0 0 520 180" preserveAspectRatio="none" style="display:block" data-page-node-id="8fe4KHS5OPtqZlmmhnQ7LI">
+                <defs data-page-node-id="PqiKpMe0i0jkpGiTwHmd3L">
+                  <linearGradient id="ag" x1="0" y1="0" x2="0" y2="1" data-page-node-id="ilpBBJTbMQwYOFf0jgyoN5">
+                    <stop offset="0%" stop-color="#0E7C6B" stop-opacity=".26" data-page-node-id="xBfFYNPunsS785efTAMUjQ"/>
+                    <stop offset="100%" stop-color="#0E7C6B" stop-opacity="0" data-page-node-id="FOZ9tL6cIUydrpBOoTjLlA"/>
+                  </linearGradient>
+                </defs>
+                <g stroke="var(--border)" stroke-width="1" data-page-node-id="YmRRvFYsgtEOO3Y2SyGF5u">
+                  <line x1="0" y1="36" x2="520" y2="36" data-page-node-id="gDAGB34U1wdD7ZkkoaMsTv"/><line x1="0" y1="72" x2="520" y2="72" data-page-node-id="jkMlX6CyOTFjhEUQqgeomQ"/>
+                  <line x1="0" y1="108" x2="520" y2="108" data-page-node-id="3DJeuCx0lBtMNvz6n48DcH"/><line x1="0" y1="144" x2="520" y2="144" data-page-node-id="26FqStGUaPAZ09Y9KUa5zP"/>
+                </g>
+                <path d="M0,150 C40,142 60,120 87,116 C114,112 130,138 156,131 C182,124 196,96 225,92 C254,88 268,110 294,100 C320,90 336,64 364,62 C392,60 408,84 434,74 C460,64 480,44 520,38 L520,180 L0,180 Z" fill="url(#ag)" data-page-node-id="Ta75nvlzaNvsOfI6RUvqEm"/>
+                <path d="M0,150 C40,142 60,120 87,116 C114,112 130,138 156,131 C182,124 196,96 225,92 C254,88 268,110 294,100 C320,90 336,64 364,62 C392,60 408,84 434,74 C460,64 480,44 520,38" fill="none" stroke="#0E7C6B" stroke-width="2.4" stroke-linecap="round" data-page-node-id="Y51Czc2BGBS1PjCQRMD4vJ"/>
+                <circle cx="520" cy="38" r="4" fill="#0E7C6B" stroke="#fff" stroke-width="2" data-page-node-id="C3yZrRkr08fnDTfY2MjlUp"/>
+                <g font-family="Cascadia Mono,Consolas,monospace" font-size="10" fill="var(--tx-3)" data-page-node-id="9kKdC5q0GW16XkfAzkUQgH">
+                  <text x="0" y="174" data-page-node-id="uIzzyCE8xbuDjDqakopvey">08-07</text><text x="240" y="174" data-page-node-id="aYI7MWKbMpqWtEFFXejy5e">08-22</text><text x="482" y="174" data-page-node-id="74pU0hecBljAt9KbpouCgR">09-05</text>
+                </g>
+              </svg>
+              <div class="chart-legend" data-page-node-id="lR3LldXK59PlpQHlXxLlL5">
+                <span class="lg" data-page-node-id="XWwFIjvHUhrEACFfUvZMSi"><i style="background:#0E7C6B" data-page-node-id="BArqH0CErSZvkJYqXcvqh6"></i>新增生词</span>
+                <span class="lg" data-page-node-id="d3jrfrzYjfGxZLlzb9e8Ac">30 天累计 <b style="font-family:var(--f-mono);color:var(--tx-1);margin-left:3px" data-page-node-id="JfZ03xaNRpRd2Q8JUy4h8H">248</b></span>
+                <span class="lg" data-page-node-id="25D6vJZz1VctXP9DmoL5w1">日均 <b style="font-family:var(--f-mono);color:var(--tx-1);margin-left:3px" data-page-node-id="IyuV70JAzn9hFWzEaPagmw">8.3</b></span>
+              </div>
+            </div>
+
+            <div class="card card-pad" data-page-node-id="bsCPfDJba1EPzFB0eDZgx2">
+              <div class="sect-title" data-page-node-id="0MiGVTVNw0hYIl9ogDB9xt">掌握度分布</div>
+              <div class="donut-row" data-page-node-id="N0Ec7kJ5mUjNSTwAglzYJy">
+                <svg width="128" height="128" viewBox="0 0 128 128" data-page-node-id="UubqzKlYnsh2DSsTBfFkQB">
+                  <circle cx="64" cy="64" r="50" fill="none" stroke="var(--bg-sunken)" stroke-width="18" data-page-node-id="KD7Llo25sxk7WSM12mQrTN"/>
+                  <circle cx="64" cy="64" r="50" fill="none" stroke="#8B908A" stroke-width="18"
+                          stroke-dasharray="78 314" stroke-dashoffset="0" transform="rotate(-90 64 64)" stroke-linecap="butt" data-page-node-id="nZNEofQdoHWG3zsPb0tPch"/>
+                  <circle cx="64" cy="64" r="50" fill="none" stroke="#A96008" stroke-width="18"
+                          stroke-dasharray="52 314" stroke-dashoffset="-78" transform="rotate(-90 64 64)" data-page-node-id="MmQZbeSLjR3uSLJRongLuT"/>
+                  <circle cx="64" cy="64" r="50" fill="none" stroke="#0E7C6B" stroke-width="18"
+                          stroke-dasharray="184 314" stroke-dashoffset="-130" transform="rotate(-90 64 64)" data-page-node-id="V6Gt5YgVsiwGDbCZRTerML"/>
+                  <text x="64" y="60" text-anchor="middle" font-family="Cascadia Mono,Consolas,monospace" font-size="24" font-weight="700" fill="var(--tx-1)" data-page-node-id="RC2aml5ABEmOcnhDoOkM9g">248</text>
+                  <text x="64" y="78" text-anchor="middle" font-size="11" fill="var(--tx-3)" data-page-node-id="RWRXGHC8loqJeD87Bh6LG9">总词条</text>
+                </svg>
+                <div class="donut-legend" data-page-node-id="eZEtambhbFx81pAYYbDm8O">
+                  <div class="dl-row" data-page-node-id="5UOEDAHNELM3EqJbSiaGse"><i class="dot st-new" data-page-node-id="vWKl0rB4W9oOolpJzk5nzo"></i>新词<span class="v" data-page-node-id="RVUJDCFuGwopy968QtRWA8">63</span></div>
+                  <div class="dl-row" data-page-node-id="43F74jkwrdV8GP4fE2cQra"><i class="dot st-learn" data-page-node-id="GK0JCa9tV3yp2UrARHA7DU"></i>学习中<span class="v" data-page-node-id="9jSpEMjY0mT6U9tD5gHbH6">41</span></div>
+                  <div class="dl-row" data-page-node-id="i1wqKDJcifc6pBnZ2DJ5RP"><i class="dot st-review" data-page-node-id="zNxvkGX2Yh8LcBXJ2XanD1"></i>复习中<span class="v" data-page-node-id="wxMKpWpdp5lkOk7C9fbnFN">117</span></div>
+                  <div class="dl-row" data-page-node-id="Lp9VbBtwnOaKcIcvjYTW6K"><i class="dot st-due" data-page-node-id="twOBgzQeHI83fMUaYgTlR5"></i>今日到期<span class="v" data-page-node-id="9PE4P224EzysK43F0YcOgn">27</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card card-pad" style="margin-top:var(--s5)" data-page-node-id="aCgbB7CVGsF5ywFtrSattG">
+            <div class="sect-title" data-page-node-id="LW3L5RNgb5HAwAwq0tmpWg">复习活跃度 · 近 18 周</div>
+            <div class="heat" id="heatmap" data-page-node-id="vg4mGtsAVpVQXFYcUppAHF"></div>
+            <div class="heat-foot" data-page-node-id="Sab3KVO9DfqjLwtwNxVvZP"><span data-page-node-id="KNy0pfptnt7e2UjcSMW8of">18 周前</span><span data-page-node-id="zXCcwpkzkqqg1U5BVUmVPd">少 ▢▢▢▢▢ 多</span><span data-page-node-id="3qh5SiTqNAiZcbBcMaNgu7">本周</span></div>
+          </div>
+        </section>
+
+        <!-- ========== P5 导出 ========== -->
+        <section class="page" id="page-export" data-page-node-id="PhidUe8G4poKJMiy1Gctul">
+          <div class="page-head" data-page-node-id="rx8dwWv8PdECYFgm4hE3s5">
+            <h1 data-page-node-id="Be3M8yEUcxBcWqBcKR9Wxs">数据</h1>
+            <p data-page-node-id="HtqFdakKyuX0PyHqdcNUKx">导出带走，导入进来 —— 双向自由，才是真的「归你所有」</p>
+          </div>
+
+          
+          <!-- ====== 导入区（三态：拖放 → 报告 → 结果）====== -->
+          <div class="card card-pad" style="margin-bottom:var(--s5)" data-page-node-id="GK04XfKmpcT7FdekEG0fzO">
+            <div style="display:flex;align-items:center" data-page-node-id="Mjnbo3RFaTzp5WZ78cNFsk">
+              <h3 style="margin:0;font-size:var(--fs-h2)" data-page-node-id="aKzPvxVYaNnXS1HyxciVbW">导入到生词本</h3>
+              <span class="badge b-ac" style="margin-left:8px" data-page-node-id="Qu6Omcdkm4EnprGsLTAcEi">v1.1</span>
+              <span class="spacer" style="flex:1" data-page-node-id="SHmJYqjsgFu3waa8lXHIrh"></span>
+              <span class="nav-kbd" data-page-node-id="tYqisBSr2h7gykFX7phD3b">Ctrl O</span>
+            </div>
+
+            <!-- 态 1 · 拖放热区 -->
+            <div class="imp-drop" id="impDrop" data-page-node-id="gHhTjbuEiiEzzHYxtHpXAy">
+              <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" data-page-node-id="fKErkPWvo9DmVbu8TDy2wY">
+                <path d="M12 16V4M7.5 8.5L12 4l4.5 4.5" data-page-node-id="4d4JjYV6cX2o6cx22L9k2J"/><path d="M4 15v3.5A1.5 1.5 0 005.5 20h13a1.5 1.5 0 001.5-1.5V15" data-page-node-id="o4zFsjsElCTcOYWQz7BRxJ"/>
+              </svg>
+              <div class="imp-t" data-page-node-id="CFVjJfuLldnMIfL4lOnHM8">拖入 <b data-page-node-id="qbf1NnpbNmuCdfFAxqycJ4">.apkg</b> / <b data-page-node-id="v5N6MDly1dVydkLWfUeGbQ">.csv</b> 文件，或<span style="color:var(--ac);font-weight:600" data-page-node-id="HLu26Aw87rzxME01om0hWN">点击选择</span></div>
+              <div class="imp-s" data-page-node-id="FnbPAjPQiu0BJoCx8xI7pt">.apkg 目前仅支持 Lupa 导出的牌组（自动校验） · .csv 支持全格式与「单词,释义」简版两列</div>
+            </div>
+
+            <!-- 态 2 · 校验报告 -->
+            <div id="impReport" style="display:none" data-page-node-id="qEsnHEHFjYUii0smSYj6qt">
+              <div style="display:flex;align-items:center;gap:10px;margin-top:var(--s4)" data-page-node-id="WidavDCtqPJ0XDPSTE4Vwf">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--info)" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" data-page-node-id="bYC4c3gbgBTx0JpDnQtHSz"><path d="M14 3H7a2 2 0 00-2 2v14a2 2 0 002 2h10a2 2 0 002-2V8z" data-page-node-id="AcWGOtBlIPpbOQ7QCxp6nR"/><path d="M14 3v5h5" data-page-node-id="CbKlpd2xW21srl4Ila3wYW"/></svg>
+                <b style="font-family:var(--f-mono)" data-page-node-id="X7K25rxx0poT2PRciqKmhw">lupa-backup-2026-08-01.apkg</b>
+                <span class="badge b-ac" data-page-node-id="gwzptnhjzHOHQk1p0wySdy">Anki 牌组</span>
+                <span style="color:var(--tx-3);font-size:var(--fs-xs)" data-page-node-id="SvRRTdUisdPuHrlEsOD251">186 KB · 已校验，model 与 Lupa 匹配</span>
+              </div>
+
+              <div class="imp-nums" data-page-node-id="vazE54usC95DbB1zpl68GR">
+                <div class="imp-num" data-page-node-id="cG2OgxJX4j0xZ245iduPCM"><b style="color:var(--ac)" data-page-node-id="o0TDfQ4taj9AqY1GFB8CvQ">9</b><span data-page-node-id="wKgw3Bm9HbrmtRce8QNv6S">新词 · 将加入</span></div>
+                <div class="imp-num" data-page-node-id="kU4wWc4sfbcGbAOIbd0rv7"><b data-page-node-id="hDHmCRBH2XHNZkVgMEFmVQ">3</b><span data-page-node-id="HES5Lesf0uKIKEwmnxmNIY">已存在 · 按策略处理</span></div>
+                <div class="imp-num" data-page-node-id="ir7Q9H8wupCwsNQNhNpxHM"><b data-page-node-id="eiB0hJqFQXTLv8umyahLFb">0</b><span data-page-node-id="0875PySEGyznDZwAmNnmrI">词库外 · 仍会收录</span></div>
+                <div class="imp-num" data-page-node-id="Zv2aviUP96sY6HddW9qU9u"><b data-page-node-id="ZgNR6UxTNF5BGE4PXwu7gW">0</b><span data-page-node-id="Dvrw54PYtyCtTGhQ5gOL8A">异常行</span></div>
+              </div>
+
+              <div style="font-size:var(--fs-sm);font-weight:650;margin-bottom:8px" data-page-node-id="BBHsWyU5mS6GCvvId7VIUL">已存在的词如何处理？</div>
+              <div class="imp-opts" id="impOpts" data-page-node-id="1RB06ek2hzzHle7IjGTSM2">
+                <div class="imp-opt on" data-risk="0" data-page-node-id="hrCTuqEcjbmkRRI8Ena06r"><b data-page-node-id="HQrDTJW2LXqHqjiIsdy74l">跳过已存在</b><span data-page-node-id="l68CTkpcLMGwC70Neot57v">保留现有记录与复习进度（默认，可重复导入）</span></div>
+                <div class="imp-opt" data-risk="0" data-page-node-id="qB22a7pOCkwXLoEAJHDs0T"><b data-page-node-id="x6UFlxZ3Vb9hRTjGcKskZV">合并补缺</b><span data-page-node-id="MklPSGoH9VUe7YWPuCjFMa">只补缺失的标签与释义，进度不动</span></div>
+                <div class="imp-opt" data-risk="1" data-page-node-id="n4Av0uucESSMvFOziq8ASV"><b data-page-node-id="jZ5V5KAyHtS5Gm0vcnx0lY">覆盖</b><span data-page-node-id="Iz46wKU0urVSFBXTYI9Pqv">用文件内容整条替换现有记录</span></div>
+              </div>
+              <div class="imp-warn" id="impWarn" data-page-node-id="z2E857rbusVBbL4xEsf7wM">覆盖将替换 3 条现有记录的释义、标签与词形，复习进度保留。此操作不可撤销（快照除外）。</div>
+
+              <div style="display:flex;align-items:center;margin-top:var(--s4)" data-page-node-id="VRyyHDBI7XJIIuPvUoZAO6">
+                <span style="font-size:var(--fs-xs);color:var(--tx-3);display:flex;align-items:center;gap:6px" data-page-node-id="DUVZhEr1KVztWXxlqlEbvh">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--ok)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-page-node-id="QpI1fPjSAWIKnyguGpgLSR"><path d="M12 3l8 4v6c0 4.5-3.2 7.4-8 8.5-4.8-1.1-8-4-8-8.5V7z" data-page-node-id="0WjxQVAnEV0obstApkWVyQ"/><path d="M9 12l2 2 4-4" data-page-node-id="tjvD4a88EUJDJuHgTORXko"/></svg>
+                  导入前自动创建快照，出问题可在设置中一键回滚
+                </span>
+                <span class="spacer" style="flex:1" data-page-node-id="V7IQy4fKuKaGWiqUvSliik"></span>
+                <button class="btn btn-ghost" id="impCancel" data-page-node-id="1b6K6IX8LhzivtSYdB1nmB">取消</button>
+                <button class="btn btn-primary" id="impStart" style="margin-left:var(--s2)" data-page-node-id="GHnGWBAfSOBq8FNt2rpruQ">导入 9 个新词</button>
+              </div>
+            </div>
+
+            <!-- 态 3 · 结果 -->
+            <div id="impDone" style="display:none;text-align:center;padding:var(--s6) 0 var(--s3)" data-page-node-id="cSkkoHBfKn4qdV8HF4QqwE">
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--ok)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="margin:0 auto" data-page-node-id="dGyYXjdZ2pOlEDEVSGAuU3"><circle cx="12" cy="12" r="9.5" data-page-node-id="yaI5CXVYFwqVvhR01K4RU5"/><path d="M8 12.5l2.6 2.6L16 9.5" data-page-node-id="Y9migZq0KIvoZ7lDvVNJIF"/></svg>
+              <div style="font-size:var(--fs-h2);font-weight:650;margin-top:var(--s3)" data-page-node-id="jgrkutknsWlbTCLijvZ9BG">导入完成</div>
+              <div style="color:var(--tx-2);font-size:var(--fs-sm);margin-top:4px" data-page-node-id="DF28kq6g6k85ZKzo85pDtU">新词 <b style="color:var(--ac)" data-page-node-id="lPHhLPwKt0NCzOmtWPoPsi">9</b> 个已进入明天的复习队列 · 跳过已存在 3 个</div>
+              <div style="margin-top:var(--s4)" data-page-node-id="xQwnwvbF53X7F21n73ijXa">
+                <button class="btn btn-soft" id="impViewNb" data-page-node-id="FsdqdQ1v7QChxAeFRY3O2U">在生词本中查看</button>
+                <button class="btn btn-ghost" id="impAgain" style="margin-left:var(--s2)" data-page-node-id="q40LTpmAR4j0xeOVfOiKIC">再导入一个文件</button>
+              </div>
+            </div>
+
+            <div class="progress" style="margin-top:var(--s4)" data-page-node-id="3BosGON11z6TgaDHNuJPqH"><i id="impProg" data-page-node-id="uaSmH7XkA5Q0aqdoqqmlW8"></i></div>
+          </div>
+
+          <div class="exp-grid" data-page-node-id="B4gHDPavACuLOAhZjURLg0">
+            <div class="exp-card pick" id="fmtApkg" data-page-node-id="KoY4s3AoonCwg26fjnowAf">
+              <div class="exp-ic" data-page-node-id="txZWDEFafQTfSEMCY8Iv5k">
+                <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" data-page-node-id="MkzlBonFBFpMp8ckjZYAnf">
+                  <rect x="3" y="4" width="18" height="16" rx="2.5" data-page-node-id="e9lZr4Th6cWQ2RQPuOhgug"/><path d="M8 9h8M8 13h5" data-page-node-id="wG9puPAa4Jhghmf8qcWuMW"/>
+                </svg>
+              </div>
+              <h3 data-page-node-id="9LH0yuJ7qipzJhgilzoknP">Anki 牌组 <span class="badge b-ac" style="margin-left:4px" data-page-node-id="BxAGg7xnEpxj32yMC2zuRD">推荐</span></h3>
+              <div class="sub" data-page-node-id="JmArSyFHao1VmAlbp3lNSK">.apkg · 双击直接导入 Anki</div>
+              <div class="desc" data-page-node-id="35orofewFhE1HmMYFQLHCg">
+                固定 model_id / deck_id，重复导出导入 Anki 不会生成重复笔记。<br data-page-node-id="6E9z2xmkGFZOaGIoHGBc7l">
+                保留音标、中英双解、词形变化与标签，导入后可直接开始复习。
+              </div>
+              <div class="opt-row" data-page-node-id="0cchDBFoUX7j5wrYMj632z">
+                <div data-page-node-id="WbHLIeEuNWqMpoxQHQ2sDs"><div class="lb" data-page-node-id="iefzpJsw21OTdhYmaZeCQp">包含英文释义</div><div class="sub" data-page-node-id="0nRjCdOAm3Y8h2muXLI1Iz">ECDICT definition 字段</div></div>
+                <div class="switch on" data-sw data-page-node-id="507ZB77t0CgmmyfZ2KlmBH"><i data-page-node-id="BuoICrmJCri4MyM6OcZpqB"></i></div>
+              </div>
+              <div class="opt-row" data-page-node-id="LFoxIHRBv91QuWHAYDNEzr">
+                <div data-page-node-id="UIwSWiOS1dkp91YO6YAtBL"><div class="lb" data-page-node-id="myFlGaYd6qDq038fdq6HRo">包含发音音频</div><div class="sub" data-page-node-id="AduNJkNCRKM2H05seJfkFr">嵌入已缓存的 mp3（+约 4.2 MB）</div></div>
+                <div class="switch" data-sw data-page-node-id="gmxlOArpfYZxmSKKAyOHQm"><i data-page-node-id="nZGXyFLt12zuIzT2Tj1H3E"></i></div>
+              </div>
+              <div class="opt-row" data-page-node-id="5mRBLREhaTJV6WUG6CGL83">
+                <div data-page-node-id="Ud8hH2LDT1kxN8DgGlro98"><div class="lb" data-page-node-id="jfXT52IoO5k8x5cpBOZpMU">只导出今日到期</div><div class="sub" data-page-node-id="tG2ulsIE75d6iCN4Hzng02">默认导出全部 248 词</div></div>
+                <div class="switch" data-sw data-page-node-id="iBELDN9OTP7IF3XTa1oRgC"><i data-page-node-id="LIz2U5mcOAdKRvInrnOSFM"></i></div>
+              </div>
+              <button class="btn btn-primary" style="width:100%;margin-top:var(--s4)" id="doExport" data-page-node-id="y9M5nx1jyGfqXU4TBCAFWr">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-page-node-id="rC5TowlXTmEGsIUVjhxxCQ"><path d="M12 3v11M8 10.5l4 4 4-4M4 17v2.5A1.5 1.5 0 005.5 21h13a1.5 1.5 0 001.5-1.5V17" data-page-node-id="DEUH9sAOk1sIYE6bOTWhOC"/></svg>
+                导出 Anki 牌组
+              </button>
+              <div class="progress" data-page-node-id="tdE1nTlEFNYIAR7Mz0Zi55"><i id="expProg" data-page-node-id="0N0m0bGghuFMfcpAuDEb2N"></i></div>
+            </div>
+
+            <div class="exp-card" id="fmtCsv" data-page-node-id="6Um44A4mPKBbCzl023jnuW">
+              <div class="exp-ic" style="background:var(--info-soft)" data-page-node-id="6OQriIjFKb2t1Hgg2E6sZh">
+                <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="#3C5BA9" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" data-page-node-id="u2tBWECVNkxM4LVrujGwQb">
+                  <path d="M14 3H7a2 2 0 00-2 2v14a2 2 0 002 2h10a2 2 0 002-2V8z" data-page-node-id="ssvG0VWgPHaFlbdNuknrNe"/><path d="M14 3v5h5M9 13h6M9 17h4" data-page-node-id="HFR7TlRRXVXdUiYHYzdE43"/>
+                </svg>
+              </div>
+              <h3 data-page-node-id="MCkr5P4HH0TzjZTpy8K8Xu">表格文件</h3>
+              <div class="sub" data-page-node-id="kLRJ8kpMED7lHONI9tXP7G">.csv · UTF-8 BOM，Excel 直接打开不乱码</div>
+              <div class="desc" data-page-node-id="UVdyISNdo78SNAqeYwf8Sz">
+                字段：单词 / 音标 / 中文释义 / 英文释义 / 词形变化 / 标签 / 状态 / 下次复习。<br data-page-node-id="3gpztEHBz6OBPbXGA53I6I">
+                适合自己再做二次处理，或导入 Notion、飞书表格、自制卡片。
+              </div>
+              <div class="opt-row" data-page-node-id="97okRWnG8LsM8R2WHOGF43">
+                <div data-page-node-id="yhSWHwI0l18tX17EZIKGJ8"><div class="lb" data-page-node-id="9aWiq671w1yUT6XPPhyF8K">字段分隔符</div></div>
+                <select class="sort-sel" style="height:30px" data-page-node-id="Mw3Pc7CzcDLhho2BjnxulT"><option data-page-node-id="IJf1MqYeLFnAMLvnSHfoUf">逗号 ,</option><option data-page-node-id="IFzQgE3Q0UFNs4Vc4ssAQk">制表符 Tab</option><option data-page-node-id="MqDGAf2R3pWEiycn0LPLqN">分号 ;</option></select>
+              </div>
+              <div class="opt-row" data-page-node-id="Z2CMpqqyAr66GX0HlONKJY">
+                <div data-page-node-id="zTxD7F2XwKZ8VWN56OPzCB"><div class="lb" data-page-node-id="LMrPuEqFxdtnf9B1GDw71t">导出表头</div><div class="sub" data-page-node-id="HQkrM99r6lOHG16kqdYjQb">关闭后仅导数据行</div></div>
+                <div class="switch on" data-sw data-page-node-id="1g0mWes4lqpkwUi0GHKp2t"><i data-page-node-id="6Ag6cCC6YGzYs6XW8HlpQB"></i></div>
+              </div>
+              <div class="opt-row" data-page-node-id="QCiETPHwDBcIUHZrKDzu58">
+                <div data-page-node-id="B7P2wbwCZ8uJ30tPXlsp7f"><div class="lb" data-page-node-id="wtr4JJHByfm161jnEkcKYg">包含复习进度</div></div>
+                <div class="switch on" data-sw data-page-node-id="E1gGApZCoJMS3CM3j9vV98"><i data-page-node-id="ojKAwdxctD6EXu3A9PNGRF"></i></div>
+              </div>
+              <button class="btn btn-ghost" style="width:100%;margin-top:var(--s4)" data-page-node-id="nsbUVkF56HpEIYyhj52z8M">导出 CSV</button>
+            </div>
+          </div>
+
+          <div class="card" data-page-node-id="YLdjSHY62drQO1xLQcK7X9">
+            <div style="padding:var(--s4) var(--s5);border-bottom:1px solid var(--border)" data-page-node-id="fCLE7ZZwZb50FfzX0TBiYC">
+              <div class="sect-title" style="margin:0" data-page-node-id="4UTiNAwWlQbI9ELttIACNt">最近导出</div>
+            </div>
+            <table data-page-node-id="ijbknp4sCJQy9XQelEKrat">
+              <thead data-page-node-id="RubAapPEixARG6MH433KUi"><tr data-page-node-id="lWFHb3Pxf4qOnEYq7KhpKP">
+                <th style="width:34%" data-page-node-id="eFBrNCxdztWKoVCbbrd5RF">文件</th><th style="width:80px" data-page-node-id="JRoGiO4kqIv722heD1z60b">格式</th><th style="width:80px" data-page-node-id="4RyZArNslytx5XFPo7hjsw">词条</th>
+                <th style="width:90px" data-page-node-id="wEuL4MqT6YumGBzjwiBLhm">大小</th><th data-page-node-id="1tXrSUfPCVhQpRbxrdx6Yk">时间</th><th style="width:90px" data-page-node-id="5ugd841t9F8EmjD5Yb7mIe"></th>
+              </tr></thead>
+              <tbody data-page-node-id="PCOXCkte3EKj9HfVEZG6rs">
+                <tr data-page-node-id="AsuPip9kx932uw3BtB8fCR"><td style="font-family:var(--f-mono);font-size:var(--fs-xs)" data-page-node-id="365gZYyLGeYVJNlkJOFWZS">lupa-2026-09-05.apkg</td>
+                  <td data-page-node-id="vNonZs1GZo2HaB1DzOMbtO"><span class="badge b-ac" data-page-node-id="MUb4c0tfxeVrYNXZXjB7uN">APKG</span></td><td style="font-family:var(--f-mono)" data-page-node-id="1VeXHGAAxGp5Xj81qXU1YS">248</td>
+                  <td style="font-family:var(--f-mono)" data-page-node-id="gsD4zkBZK61EMEwZAlFDHL">186 KB</td><td style="color:var(--tx-3);font-size:var(--fs-xs)" data-page-node-id="FrE7OBHVtlaRrGNOGHNdDN">今天 21:12</td>
+                  <td data-page-node-id="F2yHvCccecyjFWRROHjME6"><button class="mini-btn" title="打开所在文件夹" data-page-node-id="1cDD2gFjtmBUbr14uwmEws"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke-width="1.9" stroke-linecap="round" data-page-node-id="3PzTChkFIAF6E548FEN65B"><path d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z" data-page-node-id="Pq7EEQ69QRsDGt1PnAARVK"/></svg></button></td></tr>
+                <tr data-page-node-id="6CiiPvmfwPkZBYJZa9wPEu"><td style="font-family:var(--f-mono);font-size:var(--fs-xs)" data-page-node-id="mHA8XtUYD4Eghii2fKHUSe">lupa-2026-09-01.csv</td>
+                  <td data-page-node-id="ZgcGkiBUDY4haBE4p0jQTw"><span class="badge b-blue" data-page-node-id="0m7IaDjFcetK0ZVwfgLKOf">CSV</span></td><td style="font-family:var(--f-mono)" data-page-node-id="Kun1OUliLRGjxu8NUEs9G5">212</td>
+                  <td style="font-family:var(--f-mono)" data-page-node-id="PWOhHi3NPzZGIaoFSHw9He">42 KB</td><td style="color:var(--tx-3);font-size:var(--fs-xs)" data-page-node-id="XePHe3aRcR5HxwyTrMdj7B">9 月 1 日 20:40</td>
+                  <td data-page-node-id="d9ar0UutOkW3JCR6rkbTDc"><button class="mini-btn" data-page-node-id="On94tggOiWJku5D3W72Ioi"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke-width="1.9" stroke-linecap="round" data-page-node-id="3IspMFYkoJO1IG2wK9Chgx"><path d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z" data-page-node-id="EkMPgicbze7QEGYmm1eG7r"/></svg></button></td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="card card-pad" style="margin-top:var(--s5);background:var(--bg-raised)" data-page-node-id="AUc1cxaSNcQL6SazVa9Hx2">
+            <div style="display:flex;gap:var(--s3);align-items:flex-start" data-page-node-id="TrVgcZq1cDUkRc7WHUjPR2">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke-width="1.9" stroke-linecap="round" style="stroke:var(--ac);flex:0 0 18px;margin-top:2px" data-page-node-id="GVoXlrTE5VMPhIVu3lnNqg"><path d="M12 3l8 4v6c0 4.5-3.2 7.4-8 8.5-4.8-1.1-8-4-8-8.5V7z" data-page-node-id="41MDp8XvXZne7xyYpQ9Ndo"/><path d="M9 12l2 2 4-4" data-page-node-id="7cXm6XC6LPd2NDwqdGQ1i2"/></svg>
+              <div data-page-node-id="QQarsiDAvR3KxOcEGkvO4e">
+                <div style="font-size:var(--fs-h3);font-weight:650" data-page-node-id="BCuKJf84IzxQrKhp1fUviZ">路线图上的格式</div>
+                <div style="font-size:var(--fs-sm);color:var(--tx-2);line-height:1.75;margin-top:4px" data-page-node-id="AaJk62zdWVv6iAWxAAdElU">
+                  Markdown（Obsidian 卡片盒）、JSON（开发者自由处理）、Memrise / Quizlet 词表、纯文本单词表（打印用）。
+                  都在 v2 排期内，导出层是纯函数模块，加一种格式只需新增一个文件。
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ========== P6 设置 ========== -->
+        <section class="page" id="page-settings" data-page-node-id="JHGRfMuL0HwPL51WcU0HlB">
+          <div class="page-head" data-page-node-id="S7JtXGu2kWnFlTS20bUDNJ">
+            <h1 data-page-node-id="M4cgLEI3UH8BhEy6RrzLi9">设置</h1>
+            <p data-page-node-id="NwgE4WUhoUwgYEQQceusVO">所有配置写入 <code style="font-family:var(--f-mono);font-size:var(--fs-xs);background:var(--bg-sunken);padding:2px 6px;border-radius:4px" data-page-node-id="4VI4liMkRSLax8bS6c01QH">config.json</code>，可直接文本编辑</p>
+          </div>
+
+          <div class="set-group" data-page-node-id="49lFmGLvcMVmpTqBkoUgEf">
+            <div class="sect-title" data-page-node-id="4RDgfWLToydGW6HHiaWFtm">外观</div>
+            <div class="set-card" data-page-node-id="iokMUxWaClK46nJXcJnrle">
+              <div class="set-row" data-page-node-id="wJLXajlkPQNAEn5jQJoCUe">
+                <div class="info" data-page-node-id="kVvtdnNAE4VlhP1iO1KtoJ"><div class="lb" data-page-node-id="VyHTLRuwzvCCMX9ZoJMNf8">主题</div><div class="sub" data-page-node-id="ezoHivkzdbvJ35v5EclHE2">跟随系统 / 浅色 / 深色</div></div>
+                <div class="ctl" data-page-node-id="RCfIVtcAYKgIBG3pQj94be">
+                  <div class="theme-sel" id="themeSel" data-page-node-id="KeHmJLixa0ZfVJftqUhWIL">
+                    <button class="on" data-page-node-id="iBeMyVXJA1FdBCpBDMa0BL">跟随系统</button><button data-page-node-id="K4h5QYNxOCLCqPOZosfQGS">浅色</button><button data-page-node-id="3VAHYFhPBl9RBf2R5pDudl">深色</button>
+                  </div>
+                </div>
+              </div>
+              <div class="set-row" data-page-node-id="Dhiq46bCTzry7lCaArCbAl">
+                <div class="info" data-page-node-id="V69U30gLBer7IHxwCo2Qz9"><div class="lb" data-page-node-id="qHqluaZxwbILjiP2o3bORD">释义字号</div><div class="sub" data-page-node-id="nI9n2Harr0BIHwGNZMo5F5">默认 14px，可调范围 12–18px</div></div>
+                <div class="ctl" data-page-node-id="qK7FztdIUwfdWDjpAEoOVA"><select class="sort-sel" data-page-node-id="4yTrOotvLvefn6ZDvTF4KN"><option data-page-node-id="dPMWOYKZixFF13WfDRPPCn">14px（默认）</option><option data-page-node-id="GIRd6H1F2AmPRF14OFlAlB">15px</option><option data-page-node-id="ADyft32Ti4pLbWc7yE9f84">16px</option><option data-page-node-id="aDMHei5SCGfxHKLqA3FHvh">18px（大字号）</option></select></div>
+              </div>
+              <div class="set-row" data-page-node-id="jq5DYdSySq2nZWxeDlwV9K">
+                <div class="info" data-page-node-id="GrNH9xIzZ0XK4hX7cAcBQ5"><div class="lb" data-page-node-id="FFHxiiaUAuOBfFhltAZnNG">显示英文释义</div><div class="sub" data-page-node-id="2ztuah6SnLkKQ8PSrHeJU0">关闭后查词页只显示中文，界面更紧凑</div></div>
+                <div class="ctl" data-page-node-id="4U8Bme3WAmlq4UAqQUiq4G"><div class="switch on" data-sw data-page-node-id="EStZK4X6YHAXyyhJPpfLYV"><i data-page-node-id="WsRkJlqj6waU6XuGPgnusU"></i></div></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="set-group" data-page-node-id="cg2ksDDuGQhmfYGi7ZZg4j">
+            <div class="sect-title" data-page-node-id="8E7dBO0JQCvvcwxbR7h32o">发音</div>
+            <div class="set-card" data-page-node-id="dD6Gq0D2ZQNyCKhv8X8H5J">
+              <div class="set-row" data-page-node-id="iuBycy6FZ4ngHDNJg42q7P">
+                <div class="info" data-page-node-id="7AG5VQAY7M0ZentXAm4wCA"><div class="lb" data-page-node-id="2728BDHiBpIH28DwyNJCVw">默认口音</div><div class="sub" data-page-node-id="K8IPjgEGJUMAcDHFGSpDXB">影响发音按钮与复习自动朗读</div></div>
+                <div class="ctl" data-page-node-id="rJyM5BKs0EMLFdiCniyOJD"><select class="sort-sel" data-page-node-id="sESaWGABm29aNyVMi0VNz2"><option data-page-node-id="KnkDXHToaicGos52hT0iai">美音 US</option><option data-page-node-id="9HrwyLhXj35YCGOI7X19Qw">英音 UK</option></select></div>
+              </div>
+              <div class="set-row" data-page-node-id="HznffHI3B3xJHopOxsOTXD">
+                <div class="info" data-page-node-id="MlmtLoE2pQBQBgCm2P1XrZ"><div class="lb" data-page-node-id="CY8sLzlx3l2RwxApn6s9UU">TTS 服务商地址</div><div class="sub" data-page-node-id="ejn7CJqTRuUjyHvA6HuWQw">可替换为任意自有服务，不硬编码</div></div>
+                <div class="ctl" data-page-node-id="ZoKvpGLtVxDSGHifZVjd0w"><input class="txt-in" value="https://dict.youdao.com/dictvoice?audio=" data-page-node-id="ZdAayLBbxL0Io3quYzUy7V"></div>
+              </div>
+              <div class="set-row" data-page-node-id="gVTOqZWnHdi2A6cmPAeMZi">
+                <div class="info" data-page-node-id="ylDypb2juorUCEGUFqG3Ac"><div class="lb" data-page-node-id="BgRmdHj7qfQH6vFk18qKbI">音标服务商地址</div></div>
+                <div class="ctl" data-page-node-id="YGQYRKEu1TVRb4lzXSguAe"><input class="txt-in" value="https://dict.youdao.com/..." data-page-node-id="7oNiubNisGFQlgynjl3ELJ"></div>
+              </div>
+              <div class="set-row" data-page-node-id="jX8UAAsyAacNjYdeYUAyTp">
+                <div class="info" data-page-node-id="ijw4XiugHePcCqvvcR0oGr"><div class="lb" data-page-node-id="REdkYvOA8Gtk7w2aaF5Urs">媒体缓存</div><div class="sub" data-page-node-id="GbJrYcxIteryApj5YkQpI8">已缓存 1,204 条音频 / 18.6 MB · 命中 3,417 次</div></div>
+                <div class="ctl" data-page-node-id="J7KKJ51EYy62KZ5B3Lw6q1"><button class="btn btn-ghost" data-page-node-id="VL6rDugKQV2rz1cZSpaGnx">清理缓存</button></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="set-group" data-page-node-id="zOtW2hdsbTkIhvHCb20eZh">
+            <div class="sect-title" data-page-node-id="WoJTaUpltFaDlZwydtjlre">复习</div>
+            <div class="set-card" data-page-node-id="tgQAUxDqQhCKdfYZrrLThv">
+              <div class="set-row" data-page-node-id="Zk28M4GBm5bwgFuARvPEZ3">
+                <div class="info" data-page-node-id="JHTePkoG2N7yJ9eOE7KqFG"><div class="lb" data-page-node-id="oQ8sXQ0fVPMQq4LHkD9BJr">调度算法</div><div class="sub" data-page-node-id="QzfyUdEHxGiASYP6OafJjq">固定间隔 1 / 3 / 7 / 15 / 30 天</div></div>
+                <div class="ctl" data-page-node-id="ZU2lBwrD8eSrhRtzHWOwmG"><select class="sort-sel" data-page-node-id="KHgAfP3VO8SVXWLltinO8D"><option data-page-node-id="DUIwuP4u4PTLELFeAIFbf6">固定间隔（v1）</option><option disabled data-page-node-id="4sF33fwPbfmMhDlnsp5QZd">FSRS（v2 规划中）</option></select></div>
+              </div>
+              <div class="set-row" data-page-node-id="EArYdTshhgWd6F1aLpFbbM">
+                <div class="info" data-page-node-id="l7iIoAMhl2X01phaEVptlg"><div class="lb" data-page-node-id="sRAXoZpV1wYmvaFwoghSOe">每日新词上限</div><div class="sub" data-page-node-id="mytEIx45ELDqh1sxE0H0Gu">0 表示不限制</div></div>
+                <div class="ctl" data-page-node-id="sIxDQPhCGqEnDS6U3bX7In"><input class="txt-in" style="width:100px;text-align:right" value="20" data-page-node-id="3RysBtwg9YylBCLTdf8mlA"></div>
+              </div>
+              <div class="set-row" data-page-node-id="UowwAh6Lt6IOUp2KMPnn7y">
+                <div class="info" data-page-node-id="Ndg3FUnNgdx0lu8VtUIZn0"><div class="lb" data-page-node-id="aFayUCuiu8zqTAX0UAjBF8">复习时自动朗读</div><div class="sub" data-page-node-id="mjXjjxEnM7pVNHW0pduvju">翻面时播放发音，训练听力</div></div>
+                <div class="ctl" data-page-node-id="34QBgKv5yWxMucr2NpNthR"><div class="switch" data-sw data-page-node-id="2GHEccbkg0v7WvTsh0S8nM"><i data-page-node-id="4yG2LDdedXVcEPtEOqS0PC"></i></div></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="set-group" data-page-node-id="3oECXYJoXf1KIV1md0i2EG">
+            <div class="sect-title" data-page-node-id="S2dH1eiFakh4Ole1hc1iMS">数据</div>
+            <div class="set-card" data-page-node-id="FlzSpHvfHLNA99y7qrbJUu">
+              <div class="set-row" data-page-node-id="giSWet1MF2OJp0fPVUD4eP">
+                <div class="info" data-page-node-id="8r6D6Z44m2zIyFxSlS4yzH"><div class="lb" data-page-node-id="lIvllQ397upv0i62TOsfQ0">数据目录</div><div class="sub" data-page-node-id="XdANVHl5oZoLJH3A4hy97i">dict.sqlite（词库）· notebook.sqlite（生词本 + 媒体缓存）</div></div>
+                <div class="ctl" data-page-node-id="S4Fy9PYb0yNFUcPMRr4DZe">
+                  <div class="path-in" data-page-node-id="chJJkX09ZEAP38IuVguC8P">
+                    <input class="txt-in" value="D:\Projects\AISpace\LupaApp\data" data-page-node-id="OGVueBZZBt3XFWss5pcYES">
+                    <button class="btn btn-ghost" data-page-node-id="dC1muyoFixEUEiWBawHayy">更改</button>
+                    <button class="btn btn-ghost" data-page-node-id="p1OHDHuVCUygFW7smm8ip1">打开</button>
+                  </div>
+                </div>
+              </div>
+              <div class="set-row" data-page-node-id="6sAMgMnWPVUNQc4M51Xrta">
+                <div class="info" data-page-node-id="YvMJHCrWosSCinB3tIHV0Q"><div class="lb" data-page-node-id="8CnFENsKmf1zrlZwid7ukd">词库</div><div class="sub" data-page-node-id="qWny9p56wZmsgfMyPaOGvN">ECDICT 裁剪版 · 30,000 词 · 7.7 MB</div></div>
+                <div class="ctl" data-page-node-id="zBuuIfCyzxu1PaaNPnyElm"><span class="badge b-green" data-page-node-id="XUEE07lSOCpbKN25cHOnij">已就绪</span></div>
+              </div>
+              <div class="set-row" data-page-node-id="Or1YgcPvLJy6BA8NIDCvlA">
+                <div class="info" data-page-node-id="Qvv5QxNSAI71x2b6Wom4M7"><div class="lb" data-page-node-id="wfiaHyDrwG7ZbXWy7uRhho">备份生词本</div><div class="sub" data-page-node-id="YepZUKWvQ5DwmexVokUjfj">导出一份完整 SQLite 副本，可用于换机迁移</div></div>
+                <div class="ctl" data-page-node-id="HFzcAMGONvyfArVuF7cBxC"><button class="btn btn-ghost" data-page-node-id="6m2RVFZUfzzJ4wAOPUYff8">立即备份</button></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card card-pad" style="background:var(--bg-raised)" data-page-node-id="rAO0lAUs3OJfdn4Hb6XW9B">
+            <div style="font-size:var(--fs-sm);color:var(--tx-2);line-height:1.85" data-page-node-id="PVm2U1mDlbb7mT8YWWRNFH">
+              <b style="color:var(--tx-1)" data-page-node-id="OnYHeGA2Lkzj3REBncN8C8">Lupa 璐帕</b> v0.1.0 · MIT License<br data-page-node-id="XYnkPHfbfx9RQSXAiS3ZRS">
+              词库来源 ECDICT（MIT）· 调度器参考 Anki 固定间隔 · 全程离线，无账号，无埋点。
+            </div>
+          </div>
+        </section>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 划词迷你窗 -->
+<div class="mini" id="miniWin" data-page-node-id="3lH2sczFO6c8HLbISeX0Jc">
+  <div class="mini-top" data-page-node-id="2qWO2mRWToJJGP93Y9Rlqk">
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round" data-page-node-id="fpjr78BV4ikuUBpyRRHv5j"><circle cx="11" cy="11" r="7" data-page-node-id="VpaLfGmsTdNc7QiWKR5olh"/><path d="M16.5 16.5L21 21" data-page-node-id="DrUtpbf24ZnFAYW77SdXNl"/></svg>
+    划词查询
+    <button class="x" id="miniClose" data-page-node-id="JBmjW5oc7F6WzKbgM7oKng"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke-width="2" data-page-node-id="Dael6JUTnFFlspDOkuSCRX"><path d="M5 5l14 14M19 5L5 19" data-page-node-id="VrwNgbwEA6De6kVtL6nhjV"/></svg></button>
+  </div>
+  <div class="mini-body" data-page-node-id="ZVGG138V8x217FkZZqwhBZ">
+    <div class="mini-word" data-page-node-id="1F4TVqdiHXxh8B5sFM6Vv3">
+      <span class="w" data-page-node-id="qdElSY3FGpYo2D4wuiZodp">resilient</span>
+      <span class="p" data-page-node-id="ESdUxriQI2YNGrPGYp4XWn">/rɪˈzɪliənt/</span>
+      <span class="badge b-ac" style="margin-left:auto" data-page-node-id="pE6zkJhdC2OtMzPIlMhZkC">CET6</span>
+    </div>
+    <div class="mini-def" data-page-node-id="KIosNUrvowQQJTpGXmq9WK">adj. 有弹性的；能快速恢复的；适应力强的</div>
+    <div class="mini-en" data-page-node-id="E0BjYHo4yZ6EzMzYBAQrP7">able to recover quickly from difficult conditions</div>
+    <div class="mini-act" data-page-node-id="FSt6yBHLLG5BO9kczMvUn0">
+      <button class="btn btn-soft" id="miniAdd" data-page-node-id="Ln1ccnZGYfnhDaIL1UDrGy">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" data-page-node-id="kNAFlaV4cMjLRLlIWzDXR9"><path d="M12 5v14M5 12h14" data-page-node-id="jQnpah68IlzTf0dkQRn0Kq"/></svg>
+        加生词本
+      </button>
+      <button class="btn btn-ghost" id="miniExpand" data-page-node-id="mglZ63gbCYVHTkXzfcI72m">完整词条</button>
+    </div>
+  </div>
+</div>
+
+<div class="toasts" id="toasts" data-page-node-id="hWJ7TWHeSudZolF3uC6Eg1"></div>
+
+
+<!-- 短语详情卡 -->
+<div class="modal-mask" id="idmModal" data-page-node-id="a82Q2qnLFBpXGwW8ykkV3W">
+  <div class="idm-card" data-page-node-id="fPvsRuMq6DOxWeZjHnCfzs">
+    <div style="display:flex;align-items:flex-start;gap:var(--s3)" data-page-node-id="KSE8CWegYiRciijHPsqygD">
+      <div style="flex:1" data-page-node-id="JUEDQSYZcm7Glj2gG4sDSd">
+        <h2 id="idmDTitle" data-page-node-id="slIzKF2GiVYEwfeTEQUYtV">bite the bullet</h2>
+        <div style="color:var(--tx-3);font-size:13px;margin-top:4px" data-page-node-id="Z7sOfoIO0Hrzzpdg0qypUR">字面直译：<span id="idmDLit" data-page-node-id="Wd3V2xU9x6FDR4DEcbPshH">咬子弹</span></div>
+      </div>
+      <button class="btn btn-ghost" style="height:30px" id="idmDClose" data-page-node-id="5Qh5fFuxQs5yf53O5Pflky">Esc 关闭</button>
+    </div>
+
+    <div style="display:flex;gap:var(--s2);margin-top:var(--s3)" id="idmDTags" data-page-node-id="v6Wm233RJl4rNveXjdllVX"></div>
+
+    <div class="idm-sec" data-page-node-id="lyP9JLO6cBzl5OUpL5e32P">
+      <h4 data-page-node-id="ryUlA9mz9HAUMtIyoGzIK9">核心释义</h4>
+      <div class="idm-core" id="idmDMeaning" data-page-node-id="XUmAquBk73dKot6lLplRRy"></div>
+    </div>
+
+    <div class="idm-sec" data-page-node-id="ITFMtfNHCMlhZni2e0kZb2">
+      <h4 data-page-node-id="1dojeOIo5brlrFsoWVbOTE">起源与词源</h4>
+      <div class="idm-origin" id="idmDOrigin" data-page-node-id="IRPAsQnPDi4djEbHW6wZ1t"></div>
+    </div>
+
+    <div class="idm-sec" data-page-node-id="T4RSZBbsAqbu4OrxfmYGRd">
+      <h4 data-page-node-id="v9TchCrzh72AQbucFBfoim">使用场景</h4>
+      <div style="font-size:13px;color:var(--tx-2);line-height:1.7" data-page-node-id="DlvFqFiIDhiTAwsTVYEHhh"><span class="badge b-ac" id="idmDSceneTag" data-page-node-id="rUUqAIeFtqtEcESGGUJHRw"></span> <span id="idmDScene" data-page-node-id="1H7Kk0KeUFv2uPIRmzoAoP"></span></div>
+    </div>
+
+    <div class="idm-sec" data-page-node-id="hYAxtmapQrZMx9XwrxAGdQ">
+      <h4 data-page-node-id="ynF04dNjDIpicDelYT8ZAh">例句</h4>
+      <div id="idmDEx" data-page-node-id="sqo5Ah8g8OgCtyfow347ci"></div>
+    </div>
+
+    <div style="display:flex;align-items:center;margin-top:var(--s5);padding-top:var(--s4);border-top:1px solid var(--border)" data-page-node-id="P0Fw2m7zNvtwOqqdO69Szt">
+      <span style="font-size:12px;color:var(--tx-3)" id="idmDMeta" data-page-node-id="Kl6zkiFFMnacG78TZ5twSq"></span>
+      <span class="spacer" style="flex:1" data-page-node-id="OEohHUlmLjKY0ySfrkwrBc"></span>
+      <button class="btn btn-ghost" id="idmDel" data-page-node-id="R9G9ON4zACFBvkWar766AH">删除</button>
+      <button class="btn btn-soft" id="idmEdit" style="margin-left:var(--s2)" data-page-node-id="99Mk7vOD6Kl6NdD8Nugzxj">编辑</button>
+    </div>
+  </div>
+</div>
+
+<!-- 记录 / 编辑表单 -->
+<div class="modal-mask" id="idmForm" data-page-node-id="QbEA29O4FKOqWy50NhFbeB">
+  <div class="idm-card" style="width:600px" data-page-node-id="fItNuOfr7dEJF91vwUO9KO">
+    <div style="display:flex;align-items:center;margin-bottom:var(--s4)" data-page-node-id="YKozjTqV3IEDuaCL7sh6TD">
+      <h2 style="font-size:20px" id="idmFTitle" data-page-node-id="8KyJ6IFr9vHj0Hzia4abmB">记录短语</h2>
+      <span class="spacer" style="flex:1" data-page-node-id="NrvkuQ9W8mkEF2wvuOe7MG"></span>
+      <button class="btn btn-ghost" style="height:30px" id="idmFClose" data-page-node-id="9LpSTSA3YeNBVHzPBLN5qE">取消</button>
+    </div>
+
+    <div class="frm-grid" data-page-node-id="yMz8M4NkzTUvJAxgI5HvLg">
+      <div data-page-node-id="WcHKzgDrs6MhCVqBDL9OG9">
+        <label class="frm-label" data-page-node-id="MeEjWF44gEn6hHAaXgek8p">短语 <span style="color:var(--danger)" data-page-node-id="P3vSY58pnCStleNz8QBsn7">*</span></label>
+        <input class="txt-in" id="idmFPhrase" style="width:100%;box-sizing:border-box" placeholder="如 bite the bullet" data-page-node-id="x4osgC7yNhMD6tdoRAWazD">
+      </div>
+      <div data-page-node-id="3bWYUjbo3TVhHVeHJAyhj0">
+        <label class="frm-label" data-page-node-id="fiDVI8hPY191oamXFwuy1o">核心释义 <span style="color:var(--danger)" data-page-node-id="1KAfzP5m2HGWoQiRDTtp34">*</span></label>
+        <input class="txt-in" id="idmFMeaning" style="width:100%;box-sizing:border-box" placeholder="一句话说清它是什么意思" data-page-node-id="oAj5mTCyHmMEKdNCRSp48h">
+      </div>
+      <div data-page-node-id="GHN3txj7DzLt0H6ZidnfK7">
+        <label class="frm-label" data-page-node-id="gJTOgRufrrn7Ai4eKZqfpn">字面直译 <span class="opt" data-page-node-id="VeGEzWXvZhHBY2LnG6rYKl">选填</span></label>
+        <input class="txt-in" id="idmFLit" style="width:100%;box-sizing:border-box" placeholder="如 咬子弹 —— 有画面感的短语更容易记住" data-page-node-id="tUZUqHdXXm0MzPSZdgZg8S">
+      </div>
+      <div data-page-node-id="zOOXGFaXY0647uJcvB5sSg">
+        <label class="frm-label" data-page-node-id="zdYQG1DKmUBlcgLChzrjvM">起源与词源 <span class="opt" data-page-node-id="b8ZUnkvV0jv4L8HkBjDiEs">选填</span></label>
+        <textarea class="txt-area" id="idmFOrigin" placeholder="它是怎么来的？一个故事胜过十次重复。不知道可以先空着。"></textarea>
+      </div>
+      <div style="display:flex;gap:var(--s3)" data-page-node-id="XOUNE1ww57tKyVy0u6vgsT">
+        <div style="width:130px;flex-shrink:0" data-page-node-id="zJBJACsbmJvabCBnTbpS4u">
+          <label class="frm-label" data-page-node-id="0alf0PrpTbKft5ssDd3YyH">场景类型</label>
+          <select class="sort-sel" id="idmFSceneTag" style="width:100%" data-page-node-id="nTGcmdlsc92OfGzEkKZaAP">
+            <option data-page-node-id="yKmW67iDkbKQCX0VPAtvPB">通用</option><option data-page-node-id="zJiDzD8l7DefgZVEz9jBBW">口语</option><option data-page-node-id="ogtEQI4CdzV0SBqkLweaol">正式</option><option data-page-node-id="XDcuNCQOEPhbYHCewTnGeZ">书面</option>
+          </select>
+        </div>
+        <div style="flex:1" data-page-node-id="5Y66qXG96vP2kDArKEVv10">
+          <label class="frm-label" data-page-node-id="kIwfjhu71wjLty3O1Py63r">使用场景 <span class="opt" data-page-node-id="nZF8RJhP7Y3g0fw9FUUrOt">选填</span></label>
+          <input class="txt-in" id="idmFScene" style="width:100%;box-sizing:border-box" placeholder="什么场合用？对谁说？" data-page-node-id="oaFfJiCn7guBc23N0gICJE">
+        </div>
+      </div>
+      <div data-page-node-id="nODhDTPVU8aCGhyMnIdmQF">
+        <label class="frm-label" data-page-node-id="rvaNeSbPOLeACO2S2yHIqk">例句 <span class="opt" data-page-node-id="6DE4ZalhQZkdDWLmCnf3lD">选填，可多条</span></label>
+        <div id="idmFExList" style="display:flex;flex-direction:column;gap:var(--s2)" data-page-node-id="NOpCcRUGed0WzPatq2M0eP"></div>
+        <button class="btn btn-ghost" style="height:28px;margin-top:var(--s2)" id="idmFAddEx" data-page-node-id="C90nCBwG3Fs4qfOZw6SGpX">+ 加一条例句</button>
+      </div>
+      <div data-page-node-id="xyldKFx2HpQgvfakUHh6w5">
+        <label class="frm-label" data-page-node-id="jZeFaoN94siMo8EMXGX7Cj">标签 <span class="opt" data-page-node-id="BUnqH43qla6K9t5yzcPuvr">选填，逗号分隔</span></label>
+        <input class="txt-in" id="idmFTags" style="width:100%;box-sizing:border-box" placeholder="口语, 商务" data-page-node-id="KF6zixHntZrsbSPfDnvxCD">
+      </div>
+    </div>
+
+    <div class="frm-hint" style="margin-top:var(--s4)" data-page-node-id="821FKKrZk76buN9iTCOUDL">只填带 * 的两项就能保存 —— 先收藏进短语集，词源和例句之后慢慢补。保存后自动进复习队列。</div>
+
+    <div style="display:flex;justify-content:flex-end;margin-top:var(--s4)" data-page-node-id="T1cO6x3Q9xU5KgpI55As0f">
+      <button class="btn btn-primary" id="idmFSave" data-page-node-id="O38sSMruArd0JK8aEmAmiO">保存进短语集</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ---------------- 数据（ECDICT 字段结构真实还原） ---------------- */
+const DICT = {
+  abandon:{word:'abandon',ph:'/əˈbændən/',collins:4,oxford:1,tags:['cet4','cet6','考研','toefl','ielts'],
+    cn:'vt. 放弃；抛弃；离弃；遗弃\nn. 放纵；任性；狂热',
+    en:'to leave someone or something somewhere, usually permanently, when you should stay with them and look after them',
+    pos:'v:3/n:2', exch:[['过去式','abandoned'],['过去分词','abandoned'],['现在分词','abandoning'],['第三人称单数','abandons']],
+    bnc:3452, frq:2971},
+  resilient:{word:'resilient',ph:'/rɪˈzɪliənt/',collins:3,oxford:0,tags:['cet6','ielts','gre'],
+    cn:'adj. 有弹性的；能快速恢复的；适应力强的',
+    en:'able to quickly return to a previous good condition, or able to feel better quickly after something unpleasant',
+    pos:'a:1', exch:[['比较级','more resilient'],['最高级','most resilient']],
+    bnc:8942, frq:7934},
+  nuanced:{word:'nuanced',ph:'/ˈnuːɑːnst/',collins:2,oxford:0,tags:['gre','ielts'],
+    cn:'adj. 有细微差别的；微妙而精准的',
+    en:'made slightly different in appearance, meaning, or tone; characterized by subtle shades of meaning',
+    pos:'a:1', exch:[['比较级','more nuanced'],['最高级','most nuanced']],
+    bnc:11204, frq:3712}
+};
+const HISTORY = [['abandon','2 分钟前'],['resilient','18 分钟前'],['pragmatic','1 小时前'],['tenacious','昨天'],['ubiquitous','昨天'],['serendipity','2 天前']];
+const IDIOMS = [
+  {phrase:'bite the bullet', lit:'咬子弹', meaning:'咬紧牙关硬着头皮去做不情愿但必须做的事', origin:'19 世纪的战地手术没有麻醉剂，医生让伤员咬住一颗子弹忍受剧痛——"挺过这一口"由此而来。最早的文字记录见于 1891 年吉卜林的作品。', scene:'面对困难任务时的自我鼓励，或评价他人迎难而上', sceneTag:'口语', tags:['口语'], due:'3 天后', added:'2026-09-01',
+   ex:[{en:'I hate going to the dentist, but I will just have to bite the bullet.', zh:'我讨厌看牙医，但只能硬着头皮去了。'},
+       {en:'She bit the bullet and told him the truth.', zh:'她咬咬牙，把真相告诉了他。'}]},
+  {phrase:'spill the beans', lit:'打翻豆子', meaning:'泄露秘密（常指无意说漏或抢先透露）', origin:'古希腊一些社团用豆子投票：白豆赞成、黑豆反对。罐子一旦被打翻，投票结果就提前暴露——"泄了底"。现代用法 20 世纪初流行于美国。', scene:'日常聊天、八卦、惊喜被剧透', sceneTag:'口语', tags:['口语'], due:'今天', added:'2026-09-03',
+   ex:[{en:'We planned a surprise party for her, but Tom spilled the beans.', zh:'我们给她策划了惊喜派对，结果汤姆说漏了嘴。'}]},
+  {phrase:'once in a blue moon', lit:'蓝月之时', meaning:'千载难逢；非常罕见', origin:'"蓝月"指公历同一个月里的第二次满月，平均两三年才出现一次，于是被用来比喻难得一遇的事。', scene:'描述频率极低的行为或事件', sceneTag:'通用', tags:['通用'], due:'已到期', added:'2026-08-28',
+   ex:[{en:'We only see each other once in a blue moon.', zh:'我们难得见一次面。'}]},
+  {phrase:'the elephant in the room', lit:'房间里的大象', meaning:'显而易见却所有人都避而不谈的问题', origin:'源自 19 世纪初克雷洛夫的寓言：一个人参观植物园，对"大象"般巨大的存在视若无睹。1959 年起在美国演变为现在的含义。', scene:'会议或讨论中，有人终于开口直面被回避的敏感话题', sceneTag:'通用', tags:['通用','书面'], due:'未排期', added:'2026-09-05',
+   ex:[{en:'Let us address the elephant in the room: our budget is gone.', zh:'咱们直说吧：预算花光了。'}]}
+];
+let idmFilter = 'all', idmOpenIdx = -1;
+
+const NB = [
+  {w:'abandon',ph:'/əˈbændən/',t:'vt. 放弃；抛弃；遗弃',st:2,ivl:15,due:'09-20 09:00',tags:['cet6'],added:false},
+  {w:'resilient',ph:'/rɪˈzɪliənt/',t:'adj. 有弹性的；适应力强的',st:0,ivl:0,due:'—',tags:['gre'],added:false},
+  {w:'nuanced',ph:'/ˈnuːɑːnst/',t:'adj. 有细微差别的',st:1,ivl:3,due:'今天 21:40',tags:['gre'],added:false},
+  {w:'diligent',ph:'/ˈdɪlɪdʒənt/',t:'adj. 勤勉的；用功的',st:0,ivl:0,due:'—',tags:['cet6'],added:true},
+  {w:'pragmatic',ph:'/præɡˈmætɪk/',t:'adj. 务实的；实用主义的',st:1,ivl:7,due:'09-12 08:30',tags:['ielts'],added:true},
+  {w:'serendipity',ph:'/ˌserənˈdɪpəti/',t:'n. 意外发现珍奇事物的运气',st:0,ivl:0,due:'—',tags:['gre'],added:true},
+  {w:'tenacious',ph:'/tɪˈneɪʃəs/',t:'adj. 顽强的；坚韧不拔的',st:1,ivl:3,due:'今天 22:10',tags:['gre'],added:true},
+  {w:'ubiquitous',ph:'/juːˈbɪkwɪtəs/',t:'adj. 无处不在的；普遍存在的',st:0,ivl:0,due:'—',tags:['gre'],added:true}
+];
+const ST = {0:['新词','st-new'],1:['学习中','st-learn'],2:['复习中','st-review']};
+const starred = new Set(['abandon']);
+
+/* ---------------- 工具 ---------------- */
+const $ = s => document.querySelector(s);
+const $$ = s => [...document.querySelectorAll(s)];
+function toast(msg, ok=true){
+  const el = document.createElement('div');
+  el.className = 'toast';
+  el.innerHTML = (ok ? '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>' : '') + '<span>'+msg+'</span>';
+  $('#toasts').appendChild(el);
+  setTimeout(()=>{el.classList.add('out'); setTimeout(()=>el.remove(),220)}, 2000);
+}
+function go(page){
+  $$('.nav-item[data-page]').forEach(b=>b.classList.toggle('on', b.dataset.page===page));
+  $$('.page').forEach(p=>p.classList.remove('on'));
+  $('#page-'+page).classList.add('on');
+  $('.content').scrollTop = 0;
+}
+$$('.nav-item[data-page]').forEach(b=>b.onclick=()=>go(b.dataset.page));
+
+/* ---------------- 主题 ---------------- */
+$('#themeBtn').onclick = ()=>{
+  const next = document.documentElement.dataset.theme==='dark' ? 'light' : 'dark';
+  document.documentElement.dataset.theme = next;
+  toast(next==='dark' ? '已切换到深色主题' : '已切换到浅色主题');
+};
+$$('#themeSel button').forEach(b=>b.onclick=()=>{
+  $$('#themeSel button').forEach(x=>x.classList.remove('on'));
+  b.classList.add('on');
+  const t = b.textContent.trim();
+  document.documentElement.dataset.theme = t==='深色' ? 'dark' : 'light';
+});
+
+/* ---------------- 开关 ---------------- */
+$$('[data-sw]').forEach(sw=>sw.onclick=()=>sw.classList.toggle('on'));
+
+/* ---------------- P1 查词 ---------------- */
+function renderEmpty(){
+  $('#resultArea').innerHTML = `
+  <div class="empty">
+    <div class="empty-ill">
+      <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round">
+        <circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5L21 21"/><path d="M8 10.5h5"/>
+      </svg>
+    </div>
+    <h3>输入一个单词开始</h3>
+    <p>Lupa 收了 30,000 个高频词，音标 / 考试标签 / 中英双解 / 词形变化一次给全。查过的词点一下星星就进生词本。</p>
+    <div class="hint">
+      <span><span class="kbd">Ctrl</span> + <span class="kbd">F</span> 聚焦搜索</span>
+      <span><span class="kbd">Ctrl</span> + <span class="kbd">Shift</span> + <span class="kbd">L</span> 划词查询</span>
+      <span><span class="kbd">Space</span> 发音</span>
+    </div>
+  </div>`;
+}
+function renderWord(d){
+  const on = starred.has(d.word);
+  const pct = Math.max(1, 100 - Math.round(d.frq/30000*100));
+  const badges = d.tags.map(t=>`<span class="badge b-ac">${t}</span>`).join('')
+    + (d.collins?`<span class="badge b-amber">柯林斯 ${d.collins} 星</span>`:'')
+    + (d.oxford?`<span class="badge b-violet">牛津 3000</span>`:'');
+  $('#resultArea').innerHTML = `
+  <div class="result-grid">
+    <div>
+      <div class="card card-pad">
+        <div class="word-head">
+          <span class="word-title">${d.word}</span>
+          <span class="word-ph">${d.ph}</span>
+          <div class="head-actions">
+            <div class="pron-group">
+              <button class="pron-btn" data-speak="us">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M15.5 8.5a5 5 0 010 7"/></svg>
+                美音
+              </button>
+              <button class="pron-btn" data-speak="uk">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M15.5 8.5a5 5 0 010 7"/></svg>
+                英音
+              </button>
+            </div>
+            <button class="star-btn ${on?'on':''}" id="starBtn" title="加入 / 移出生词本">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke-width="1.9" stroke-linejoin="round">
+                <path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8L3.5 9.7l5.9-.9z"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+        <div class="tag-row">${badges}</div>
+        <div class="sec-label"><h2>中文释义</h2><div class="line"></div></div>
+        <div class="def-cn">${d.cn}</div>
+        <div class="sec-label"><h2>英文释义</h2><div class="line"></div></div>
+        <div class="def-en">${d.en}</div>
+        <div class="sec-label"><h2>词形变化</h2><div class="line"></div></div>
+        <div class="exch">${d.exch.map(([k,v])=>`<div class="exch-row"><span class="k">${k}</span><span class="v">${v}</span></div>`).join('')}</div>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:var(--s4)">
+      <div class="card card-pad">
+        <div class="sect-title">词频</div>
+        <div class="freq-row">
+          <div class="freq-bar"><div class="freq-fill" style="width:${pct}%"></div></div>
+          <span style="font-family:var(--f-mono);font-size:var(--fs-sm);font-weight:650">TOP ${pct}%</span>
+        </div>
+        <div class="meta-list" style="margin-top:var(--s4)">
+          <div class="meta-row"><span class="k">当代语料 frq</span><span class="v">${d.frq.toLocaleString()}</span></div>
+          <div class="meta-row"><span class="k">BNC 排名</span><span class="v">${d.bnc.toLocaleString()}</span></div>
+          <div class="meta-row"><span class="k">词性分布</span><span class="v">${d.pos}</span></div>
+        </div>
+      </div>
+      <div class="card card-pad">
+        <div class="sect-title">最近查询</div>
+        <div class="history-list">
+          ${HISTORY.map(([w,t])=>`<button class="history-item" data-word="${w}"><span>${w}</span><span class="t">${t}</span></button>`).join('')}
+        </div>
+      </div>
+    </div>
+  </div>`;
+  bindResult(d);
+}
+function bindResult(d){
+  $$('#resultArea [data-speak]').forEach(b=>b.onclick=()=>{
+    toast(`播放 ${d.word}（${b.dataset.speak==='us'?'美音':'英音'}，本地缓存命中）`);
+  });
+  $('#starBtn').onclick = ()=>{
+    const inNb = starred.has(d.word);
+    if(inNb){ starred.delete(d.word); toast(`已从生词本移除 ${d.word}`, false); }
+    else { starred.add(d.word); toast(`已加入生词本 · 明天开始复习`); }
+    $('#starBtn').classList.toggle('on', !inNb);
+  };
+  $$('#resultArea [data-word]').forEach(b=>b.onclick=()=>{ $('#q').value=b.dataset.word; doSearch(); });
+  $('#quickAdd').onclick = ()=>{
+    if(starred.has(d.word)){ toast(`${d.word} 已在生词本中`, false); return; }
+    starred.add(d.word); $('#starBtn').classList.add('on'); toast(`已加入生词本 · 明天开始复习`);
+  };
+}
+function doSearch(){
+  const q = $('#q').value.trim().toLowerCase();
+  $('#searchBox').classList.toggle('has-value', q.length>0);
+  if(!q){ renderEmpty(); return; }
+  const d = DICT[q];
+  if(!d){
+    $('#resultArea').innerHTML = `
+    <div class="empty">
+      <div class="empty-ill">
+        <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round">
+          <circle cx="12" cy="12" r="9"/><path d="M8 15c1-1.2 2.4-1.8 4-1.8s3 .6 4 1.8"/><path d="M9.5 9.5h.01M14.5 9.5h.01"/>
+        </svg>
+      </div>
+      <h3>词库未收录 “${q}”</h3>
+      <p>当前词库是按语料频率裁剪的 <b>30,000 词</b>版本。可切换到完整 340 万词库（约 480 MB）后重试，或在设置里扩大裁剪阈值。</p>
+      <div style="display:flex;gap:var(--s2);margin-top:var(--s3)">
+        <button class="btn btn-ghost">手动添加为自定义词条</button>
+        <button class="btn btn-ghost">扩大词库</button>
+      </div>
+    </div>`;
+    return;
+  }
+  renderWord(d);
+}
+$('#q').addEventListener('input', e=>$('#searchBox').classList.toggle('has-value', e.target.value.length>0));
+$('#q').addEventListener('keydown', e=>{ if(e.key==='Enter') doSearch(); if(e.key==='Escape'){ $('#q').value=''; doSearch(); } });
+$('#qClear').onclick = ()=>{ $('#q').value=''; doSearch(); $('#q').focus(); };
+$('#q').value='abandon'; doSearch();
+
+/* ---------------- P2 生词本 ---------------- */
+function renderNb(){
+  $('#nbBody').innerHTML = NB.map((r,i)=>{
+    const [sn,sc] = ST[r.st];
+    return `<tr data-i="${i}">
+      <td><input type="checkbox" class="ck"></td>
+      <td>
+        <div class="w-cell">
+          <span class="w-word">${r.w}</span>
+          <span class="w-ph">${r.ph}</span>
+        </div>
+      </td>
+      <td><span class="w-trans">${r.t}</span></td>
+      <td><span class="st-cell"><i class="dot ${sc}"></i>${sn}</span></td>
+      <td class="ivl-cell">${r.ivl?r.ivl+' 天':'—'}</td>
+      <td class="due-cell">${r.due}</td>
+      <td>${r.tags.map(t=>`<span class="badge b-gray">${t}</span>`).join(' ')}</td>
+      <td>
+        <div class="row-act">
+          <button class="mini-btn" title="发音"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M15.5 8.5a5 5 0 010 7"/></svg></button>
+          <button class="mini-btn" title="移除"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M9 7V5h6v2M6 7l1 13h10l1-13"/></svg></button>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+  $$('#nbBody .ck').forEach(ck=>ck.onchange=updateBulk);
+  $$('#nbBody tr').forEach(tr=>{
+    tr.querySelector('td:last-child').onclick = e=>e.stopPropagation();
+    tr.onclick = e=>{ if(e.target.tagName!=='INPUT' && !e.target.closest('.row-act')){ const ck=tr.querySelector('.ck'); ck.checked=!ck.checked; updateBulk(); } };
+    const del = tr.querySelectorAll('.mini-btn')[1];
+    del.onclick = e=>{ e.stopPropagation(); tr.remove(); toast(`已移除 ${NB[tr.dataset.i].w}`, false); updateBulk(); };
+    tr.querySelectorAll('.mini-btn')[0].onclick = e=>{ e.stopPropagation(); toast('播放 '+NB[tr.dataset.i].w); };
+  });
+}
+function updateBulk(){
+  const n = $$('#nbBody .ck:checked').length;
+  $('#selCount').textContent = n;
+  $('#bulkBar').classList.toggle('on', n>0);
+}
+$('#ckAll').onchange = e=>{
+  $$('#nbBody .ck').forEach(c=>c.checked=e.target.checked);
+  $$('#nbBody tr').forEach(tr=>tr.classList.toggle('sel', e.target.checked));
+  updateBulk();
+};
+$$('#filterChips .chip').forEach(c=>c.onclick=()=>{
+  $$('#filterChips .chip').forEach(x=>x.classList.remove('on'));
+  c.classList.add('on');
+});
+$('#bulkDel').onclick = ()=>{ const n=$('#selCount').textContent; $$('#nbBody .ck:checked').forEach(c=>c.closest('tr').remove()); updateBulk(); toast(`已移出 ${n} 个词条`,false); };
+renderNb();
+
+/* ---------------- P3 复习 ---------------- */
+let rvDone = 0;
+const flip = $('#flipCard');
+flip.onclick = ()=>flip.classList.toggle('on');
+$$('#gradeRow .grade-btn').forEach(b=>b.onclick=()=>{
+  flip.classList.remove('on');
+  rvDone++;
+  const pct = Math.min(100, (6+rvDone)/27*100);
+  $('#rvFill').style.width = pct+'%';
+  const g = b.dataset.g;
+  if(g==='1') toast('记为「忘了」· 明天再来');
+  else toast(`记为「${b.querySelector('.lb').textContent}」· ${b.dataset.iv}再见`);
+  if(rvDone>=6){
+    $('#reviewArea').style.display='none';
+    $('#reviewDone').style.display='block';
+  } else {
+    flip.querySelector('.rv-word').textContent = ['pragmatic','tenacious','diligent','serendipity','ubiquitous'][rvDone%5];
+    setTimeout(()=>{},0);
+  }
+});
+$$('.rv-foot button').forEach(b=>b.onclick=()=>{
+  if(b.dataset.skip) toast('已跳过');
+  else if(b.dataset.quit){ $('#reviewArea').style.display='none'; $('#reviewDone').style.display='block'; }
+});
+$('#rvSpeak').onclick = ()=>toast('播放 nuanced（美音）');
+$('#rvRestart').onclick = ()=>{ rvDone=0; $('#rvFill').style.width='22%'; $('#reviewDone').style.display='none'; $('#reviewArea').style.display='block'; };
+
+document.addEventListener('keydown', e=>{
+  if(e.target.tagName==='INPUT'||e.target.tagName==='SELECT') return;
+  if($('#page-review').classList.contains('on') && $('#reviewArea').style.display!=='none'){
+    if(e.key===' '){ e.preventDefault(); flip.classList.toggle('on'); }
+    if(['1','2','3','4'].includes(e.key)){ $$('#gradeRow .grade-btn')[+e.key-1].click(); }
+    if(e.key.toLowerCase()==='s') toast('已跳过');
+    if(e.key.toLowerCase()==='q'){ $('#reviewArea').style.display='none'; $('#reviewDone').style.display='block'; }
+  }
+  if(e.key==='Escape'){ $('#miniWin').classList.remove('on'); $('#idmModal').classList.remove('on'); $('#idmForm').classList.remove('on'); }
+  if((e.ctrlKey&&e.shiftKey&&e.key.toLowerCase()==='l')){ e.preventDefault(); $('#miniWin').classList.toggle('on'); }
+  if(e.ctrlKey&&e.key.toLowerCase()==='f'){ e.preventDefault(); go('search'); $('#q').focus(); $('#q').select(); }
+  if(e.ctrlKey&&e.key.toLowerCase()==='b'){ e.preventDefault(); go('notebook'); }
+  if(e.ctrlKey&&e.key.toLowerCase()==='r'){ e.preventDefault(); go('review'); }
+  if(e.ctrlKey&&e.key.toLowerCase()==='i'){ e.preventDefault(); go('idioms'); }
+  if(e.ctrlKey&&e.key.toLowerCase()==='o'){ e.preventDefault(); go('export'); impTo('report'); }
+  if(e.ctrlKey&&e.key.toLowerCase()==='n'){ e.preventDefault(); openIdiomForm(); }
+  if(e.ctrlKey&&e.key.toLowerCase()==='t'){ e.preventDefault(); go('stats'); }
+  if(e.ctrlKey&&e.key.toLowerCase()==='e'){ e.preventDefault(); go('export'); }
+});
+
+renderIdioms();
+
+/* ---------------- P4 热力图 ---------------- */
+(function(){
+  const h = $('#heatmap');
+  let s = '';
+  for(let i=0;i<126;i++){
+    const r = (i*7919)%100;
+    const lv = r<42 ? '' : r<62 ? 'l1' : r<82 ? 'l2' : 'l3';
+    s += `<i class="${lv}"></i>`;
+  }
+  h.innerHTML = s;
+  h.lastElementChild.classList.add('today');
+})();
+
+/* ---------------- P5 导出 ---------------- */
+$('#fmtApkg').onclick = ()=>{ $('#fmtApkg').classList.add('pick'); $('#fmtCsv').classList.remove('pick'); };
+$('#fmtCsv').onclick = ()=>{ $('#fmtCsv').classList.add('pick'); $('#fmtApkg').classList.remove('pick'); };
+$('#doExport').onclick = ()=>{
+  const p = $('#expProg');
+  p.style.width='0%';
+  let v=0;
+  const t = setInterval(()=>{
+    v += 14 + Math.random()*16;
+    p.style.width = Math.min(100,v)+'%';
+    if(v>=100){ clearInterval(t); toast('已导出 248 词 → lupa-2026-09-05.apkg（186 KB）'); }
+  }, 180);
+};
+
+
+/* ---------------- 短语集 ---------------- */
+function renderIdioms(){
+  const list = $('#idmList');
+  list.innerHTML = IDIOMS
+    .map((d,i)=>({d,i}))
+    .filter(({d}) => idmFilter==='all' || d.tags.includes(idmFilter))
+    .map(({d,i}) => `
+      <div class="idm-row" data-i="${i}">
+        <div style="flex-shrink:0"><span class="idm-title">${d.phrase}</span><span class="idm-lit">${d.lit||''}</span></div>
+        <div class="idm-meaning">${d.meaning}</div>
+        <span class="idm-num">例句 ${d.ex.length}</span>
+        <span class="due-cell">${d.due}</span>
+      </div>`).join('');
+  $$('#idmList .idm-row').forEach(r => r.onclick = ()=>openIdiom(+r.dataset.i));
+  $$('#idmChips .chip').forEach(c => c.onclick = ()=>{
+    $$('#idmChips .chip').forEach(x=>x.classList.remove('on'));
+    c.classList.add('on'); idmFilter = c.dataset.f; renderIdioms();
+  });
+}
+
+function openIdiom(i){
+  const d = IDIOMS[i]; idmOpenIdx = i;
+  $('#idmDTitle').textContent = d.phrase;
+  $('#idmDLit').textContent = d.lit || '—';
+  $('#idmDMeaning').textContent = d.meaning;
+  $('#idmDOrigin').textContent = d.origin || '尚未记录 —— 双击「编辑」补上这个故事。';
+  $('#idmDSceneTag').textContent = d.sceneTag || '通用';
+  $('#idmDScene').textContent = d.scene || '';
+  $('#idmDTags').innerHTML = d.tags.map(t=>`<span class="badge b-ac">${t}</span>`).join('')
+    + `<span class="badge b-gray">收录于 ${d.added}</span>`;
+  $('#idmDEx').innerHTML = d.ex.map(e=>`
+    <div class="ex-item">
+      <div class="ex-en"><button class="ex-speak" title="朗读例句"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M15.5 8.5a5 5 0 010 7"/></svg></button><span>${e.en}</span></div>
+      <div class="ex-zh">${e.zh}</div>
+    </div>`).join('');
+  $$('#idmDEx .ex-speak').forEach(b=>b.onclick=()=>toast('播放例句（美音）'));
+  $('#idmDMeta').textContent = `复习：${d.due} · 固定间隔 1/3/7/15/30 天`;
+  $('#idmModal').classList.add('on');
+}
+
+let idmEditIdx = -1;
+function openIdiomForm(editIdx){
+  idmEditIdx = (editIdx===undefined ? -1 : editIdx);
+  const d = idmEditIdx >= 0 ? IDIOMS[idmEditIdx] : null;
+  $('#idmFTitle').textContent = d ? '编辑短语' : '记录短语';
+  $('#idmFPhrase').value = d ? d.phrase : '';
+  $('#idmFMeaning').value = d ? d.meaning : '';
+  $('#idmFLit').value = d ? (d.lit||'') : '';
+  $('#idmFOrigin').value = d ? (d.origin||'') : '';
+  $('#idmFScene').value = d ? (d.scene||'') : '';
+  $('#idmFSceneTag').value = d ? (d.sceneTag||'通用') : '通用';
+  $('#idmFTags').value = d ? d.tags.join(', ') : '';
+  $('#idmFExList').innerHTML = '';
+  (d ? d.ex : []).forEach(e=>addExEditRow(e.en, e.zh));
+  $('#idmModal').classList.remove('on');
+  $('#idmForm').classList.add('on');
+  $('#idmFPhrase').focus();
+}
+function addExEditRow(en, zh){
+  const row = document.createElement('div');
+  row.className = 'ex-edit';
+  row.innerHTML = `<input class="txt-in" placeholder="English sentence" value="${en||''}">
+    <input class="txt-in" placeholder="中文翻译" value="${zh||''}">
+    <button class="btn btn-ghost" style="height:34px;flex-shrink:0">✕</button>`;
+  row.querySelector('button').onclick = ()=>row.remove();
+  $('#idmFExList').appendChild(row);
+}
+$('#idmNew').onclick = ()=>openIdiomForm();
+$('#idmFAddEx').onclick = ()=>addExEditRow('','');
+$('#idmDClose').onclick = ()=>$('#idmModal').classList.remove('on');
+$('#idmFClose').onclick = ()=>$('#idmForm').classList.remove('on');
+[$('#idmModal'),$('#idmForm')].forEach(m=>m.onclick = e=>{ if(e.target===m) m.classList.remove('on'); });
+$('#idmEdit').onclick = ()=>openIdiomForm(idmOpenIdx);
+$('#idmDel').onclick = ()=>{
+  IDIOMS.splice(idmOpenIdx,1); idmOpenIdx = -1;
+  $('#idmModal').classList.remove('on'); renderIdioms();
+  toast('已从短语集删除');
+};
+$('#idmFSave').onclick = ()=>{
+  const phrase = $('#idmFPhrase').value.trim(), meaning = $('#idmFMeaning').value.trim();
+  if(!phrase || !meaning){ toast('短语和核心释义必填'); return; }
+  const ex = $$('#idmFExList .ex-edit').map(r=>{
+    const en = r.querySelectorAll('input')[0].value.trim(), zh = r.querySelectorAll('input')[1].value.trim();
+    return en ? {en, zh} : null;
+  }).filter(Boolean);
+  const obj = {
+    phrase, meaning,
+    lit: $('#idmFLit').value.trim(),
+    origin: $('#idmFOrigin').value.trim(),
+    scene: $('#idmFScene').value.trim(), sceneTag: $('#idmFSceneTag').value,
+    tags: $('#idmFTags').value.split(/[,，]/).map(t=>t.trim()).filter(Boolean),
+    due: '明天', added: '今天', ex: ex.length ? ex : []
+  };
+  if(idmEditIdx >= 0){ obj.due = IDIOMS[idmEditIdx].due; obj.added = IDIOMS[idmEditIdx].added; IDIOMS[idmEditIdx] = obj; }
+  else IDIOMS.unshift(obj);
+  $('#idmForm').classList.remove('on'); renderIdioms();
+  toast(idmEditIdx >= 0 ? '已更新短语' : `已收录「${phrase}」· 明天复习`);
+  idmEditIdx = -1;
+};
+
+
+/* ---------------- 导入三态 ---------------- */
+function impTo(st){
+  $('#impDrop').style.display    = st==='drop'   ? '' : 'none';
+  $('#impReport').style.display  = st==='report' ? '' : 'none';
+  $('#impDone').style.display    = st==='done'   ? '' : 'none';
+  $('#impProg').style.width      = '0%';
+}
+$('#impDrop').onclick = ()=>impTo('report');
+$('#impCancel').onclick = ()=>impTo('drop');
+$$('#impOpts .imp-opt').forEach(o=>o.onclick = ()=>{
+  $$('#impOpts .imp-opt').forEach(x=>x.classList.remove('on'));
+  o.classList.add('on');
+  $('#impWarn').classList.toggle('on', o.dataset.risk==='1');
+});
+$('#impStart').onclick = ()=>{
+  const p = $('#impProg'); p.style.width='0%';
+  let v=0;
+  const t = setInterval(()=>{
+    v += 18 + Math.random()*14;
+    p.style.width = Math.min(100,v)+'%';
+    if(v>=100){ clearInterval(t); impTo('done'); toast('已导入 9 个新词 · 快照已保存'); }
+  }, 160);
+};
+$('#impViewNb').onclick = ()=>{ go('notebook'); };
+$('#impAgain').onclick = ()=>impTo('drop');
+
+/* ---------------- 划词窗 ---------------- */
+$('#miniDemo').onclick = ()=>$('#miniWin').classList.toggle('on');
+$('#miniClose').onclick = ()=>$('#miniWin').classList.remove('on');
+$('#miniAdd').onclick = ()=>{ starred.add('resilient'); toast('已加入生词本 · resilient'); $('#miniWin').classList.remove('on'); };
+$('#miniExpand').onclick = ()=>{ $('#q').value='resilient'; doSearch(); go('search'); $('#miniWin').classList.remove('on'); };
+</script>
+</body>
+</html>
