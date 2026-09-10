@@ -19,10 +19,11 @@ Future<void> main(List<String> args) async {
     stdout.writeln('表: $names');
 
     const expected = [
-      'ai_cache', 'audio_cache', 'cards', 'meta', 'notes', 'phonetic_cache', 'revlog',
+      'ai_cache', 'audio_cache', 'cards', 'meta', 'notes', 'phonetic_cache',
+      'phrase_examples', 'phrase_review_log', 'phrases', 'revlog',
     ];
     final missing = expected.where((t) => !names.contains(t)).toList();
-    stdout.writeln('期望 7 表齐全: ${missing.isEmpty ? "PASS" : "FAIL 缺 $missing"}');
+    stdout.writeln('期望 10 表齐全: ${missing.isEmpty ? "PASS" : "FAIL 缺 $missing"}');
 
     final notesCols = (await db.rawQuery('PRAGMA table_info(notes)'))
         .map((r) => r['name'] as String)
@@ -33,7 +34,7 @@ Future<void> main(List<String> args) async {
     final metaMap = {for (final r in meta) r['key'] as String: r['value']};
     stdout.writeln('meta: $metaMap');
 
-    final okMeta = metaMap['schema_version'] == '1' && metaMap['lupa_version'] == '0.2.0';
+    final okMeta = metaMap['schema_version'] == '2' && metaMap['lupa_version'] == '0.2.1';
     stdout.writeln('meta 校验: ${okMeta ? "PASS" : "FAIL"}');
 
     // 幂等性：再次调用 ensureNotebook 不重建（与 Python 版一致）

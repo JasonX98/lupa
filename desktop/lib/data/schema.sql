@@ -1,5 +1,5 @@
 -- ============================================================================
--- Lupa / 璐帕 — 用户生词本 + 媒体缓存 schema (v1)
+-- Lupa / 璐帕 — 用户生词本 + 短语集 + 媒体缓存 schema (v2)
 --
 -- 跨语言友好约束 #1：本文件仅使用 SQLite >= 3.38 标准 SQL。
 --   - 不使用 JSON1 扩展、STRICT 表、RETURNING 子句、WITHOUT ROWID、
@@ -128,6 +128,56 @@ CREATE TABLE ai_cache (
 CREATE INDEX idx_ai_key  ON ai_cache(cache_key);
 CREATE INDEX idx_ai_word ON ai_cache(word);
 
+-- ----- 短语集三表（与单词生词本完全隔离）-----
+-- >>> PHRASE_TABLES_V2 >>>
+-- 说明：本区块被 lib/data/notebook_db.dart 的旧库迁移按标记提取执行，
+--       与 schema.sql 是唯一事实源；标记不要删除或改名。
+CREATE TABLE IF NOT EXISTS phrases (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    p_id          TEXT    UNIQUE NOT NULL,       -- 对外 ID（Anki 风格 hex/uuid）
+    phrase        TEXT    NOT NULL,              -- 短语原文（去重键）
+    lit           TEXT    NOT NULL DEFAULT '',   -- 字面直译
+    meaning       TEXT    NOT NULL,              -- 核心释义（必填）
+    origin        TEXT    NOT NULL DEFAULT '',   -- 典故 / 来源
+    scene         TEXT    NOT NULL DEFAULT '',   -- 使用场景
+    scene_tag     TEXT    NOT NULL DEFAULT '通用',
+    tags          TEXT    NOT NULL DEFAULT '',   -- 逗号分隔
+    added_at      INTEGER NOT NULL,
+    state         INTEGER NOT NULL DEFAULT 0,    -- 0=new 1=learn 2=review
+    due           INTEGER NOT NULL DEFAULT 0,
+    ivl           INTEGER NOT NULL DEFAULT 0,
+    reps          INTEGER NOT NULL DEFAULT 0,
+    lapses        INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE INDEX IF NOT EXISTS idx_phrases_phrase ON phrases(phrase);
+CREATE INDEX IF NOT EXISTS idx_phrases_due    ON phrases(state, due);
+
+CREATE TABLE IF NOT EXISTS phrase_examples (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    phrase_id     INTEGER NOT NULL,
+    ordinal       INTEGER NOT NULL DEFAULT 0,
+    en            TEXT    NOT NULL,
+    zh            TEXT    NOT NULL DEFAULT '',
+    FOREIGN KEY (phrase_id) REFERENCES phrases(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_phrase_examples_pid ON phrase_examples(phrase_id);
+
+CREATE TABLE IF NOT EXISTS phrase_review_log (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    phrase_id     INTEGER NOT NULL,
+    ease          INTEGER NOT NULL,
+    ivl           INTEGER NOT NULL,
+    last_ivl      INTEGER NOT NULL,
+    time          INTEGER NOT NULL DEFAULT 0,
+    ts            INTEGER NOT NULL,
+    FOREIGN KEY (phrase_id) REFERENCES phrases(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_phrase_review_log_pid ON phrase_review_log(phrase_id);
+-- <<< PHRASE_TABLES_V2 <<<
+
 -- ----- meta 表 -----
 
 CREATE TABLE meta (
@@ -135,6 +185,6 @@ CREATE TABLE meta (
     value  TEXT NOT NULL
 );
 
-INSERT INTO meta (key, value) VALUES ('schema_version', '1');
-INSERT INTO meta (key, value) VALUES ('lupa_version', '0.2.0');
+INSERT INTO meta (key, value) VALUES ('schema_version', '2');
+INSERT INTO meta (key, value) VALUES ('lupa_version', '0.2.1');
 INSERT INTO meta (key, value) VALUES ('created_at', strftime('%s', 'now'));

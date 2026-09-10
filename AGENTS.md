@@ -8,14 +8,14 @@ Lupa 是一款英语学习离线词典，重点不是"再多一个词典"，而�
 
 - **数据主权**：本地生词本 + 完整导出（Anki apkg / CSV）是一等公民，数据归用户所有。
 - **离线优先**：查词 / 生词本 / 复习不依赖网络；仅音标 / TTS 联网拉取并落库缓存。
-- **双语言对齐**：业务逻辑在 Dart（桌面）与 Python（CLI）各一份，行为契约以 Python 版为准。
+- **Flutter 为主**：业务逻辑以 Dart（桌面）为唯一事实源；Python CLI 是 MVP 时代的参考实现，已列入移除计划，后续功能不再与其同步。
 
 ## 双入口与技术栈
 
 | 入口 | 目录 | 技术栈 |
 |---|---|---|
 | Windows 桌面应用（主力） | `desktop/` | Flutter / Dart；`ganki`、`sqflite_common_ffi`、`sqlite3`、`audioplayers` |
-| 命令行工具（参考实现） | `src/lupa/` | Python ≥ 3.13；Typer；`genanki`（apkg 生成） |
+| 命令行工具（待移除） | `src/lupa/` | Python ≥ 3.13；Typer；`genanki`（MVP 时代参考实现，仅保留验证历史，不再新增功能） |
 
 ## 常用命令
 
@@ -61,19 +61,19 @@ lupa export -f apkg|csv | lupa info | lupa version
 
 ## 关键约束
 
-1. **`schema.sql` 双份必须同步**：`src/lupa/notebook/schema.sql` 与 `desktop/lib/data/schema.sql` 是同一份；改一处必须同步另一处。仅用 SQLite ≥ 3.38 标准 SQL（不用 JSON1 / STRICT / RETURNING / virtual table）。
+1. **`schema.sql` 以 Flutter 为唯一事实源**：以 `desktop/lib/data/schema.sql` 为准；`src/lupa/notebook/schema.sql`（Python 参考实现）不再强制同步，随 Python 代码一起移除。仅用 SQLite ≥ 3.38 标准 SQL（不用 JSON1 / STRICT / RETURNING / virtual table）。
 2. **业务逻辑写成纯函数**：不读 stdin / 不写 stdout。CLI 与 UI 只做参数解析与展示。
 3. **媒体缓存键永远三段式**：`provider:word:format`（如 `youdao:abandon:mp3-us`），URL 单列字段。
 4. **apkg 稳定 guid**：`sha1("lupa::word")`，model/deck id 两版一致，混用不产生重复卡片。
 5. **数据目录**：`LUPA_HOME` 环境变量优先；未设时默认 `<exe>/lupa_data`（便携默认，解压即用）。与 Python CLI 靠 `LUPA_HOME` 共享同一份数据。
-6. **版本号两处同步**：`src/lupa/__init__.py` 的 `__version__` 与 `desktop/pubspec.yaml` 的 `version` 必须一致，统一为 `x.y.z`（当前 `0.2.0`）。
+6. **版本号以 Flutter 为准**：`desktop/pubspec.yaml` 的 `version` 为唯一事实源，统一为 `x.y.z`（当前 `0.2.1`）；Python 侧版本号随 Python 代码移除。
 7. **发行 zip 位置**：桌面发布 zip（`Lupa-<version>-windows.zip`）统一放在 `desktop/build/windows/x64/runner/Release/`（`flutter build windows --release` 的输出目录），不放在仓库根目录。
 
 ## 验证
 
 - **桌面端**：`flutter test`（主题/词形/外壳）+ `desktop/tool/verify_*.dart` 六组（headless，走真实词库 + 临时生词本库）。
-- **导出一致性**：`desktop/tool/anki_import_compare.py` 将 Python 与 Dart 两版 apkg 分别灌入全新 Anki collection（官方 `anki` 库），比对 guid / 字段 / model / deck 完全一致。
-- **CLI**：`lupa version` 输出 `Lupa v0.2.0`，`lupa info` 展示词库状态。
+- **导出一致性**：`desktop/tool/anki_import_compare.py` 曾用官方 `anki` 库比对 Python 与 Dart 两版 apkg；Python 版移除后，该脚本只校验 Dart 版产出。
+- **CLI**：`lupa version` 输出 `Lupa v0.2.0`（CLI 版本号已冻结，不再随桌面版同步），`lupa info` 展示词库状态。
 
 ## 数据目录结构
 

@@ -43,22 +43,68 @@ Future<String> loadSchemaSql() async {
   throw FileSystemException('schema.sql 未找到', candidates.map((e) => e.path).join('; '));
 }
 
+/// 已迁移（或新建）过的库绝对路径缓存：避免每次 ensureNotebookDb 都开库查版本。
+final Set<String> _migrated = <String>{};
+
+/// 短语表 DDL 区块标记（与 lib/data/schema.sql 中一致，勿改）。
+const String _phraseBeginMarker = '-- >>> PHRASE_TABLES_V2 >>>';
+const String _phraseEndMarker = '-- <<< PHRASE_TABLES_V2 <<<';
+
+/// 从 schema.sql 提取短语三表 DDL 区块（旧库迁移用；schema.sql 为单一事实源）。
+Future<String> loadPhraseSchemaSql() async {
+  final sql = await loadSchemaSql();
+  final begin = sql.indexOf(_phraseBeginMarker);
+  final end = sql.indexOf(_phraseEndMarker);
+  if (begin < 0 || end < 0 || end <= begin) {
+    throw StateError('schema.sql 缺少短语表标记 $_phraseBeginMarker / $_phraseEndMarker');
+  }
+  return sql.substring(begin + _phraseBeginMarker.length, end);
+}
+
 /// 确保生词本库存在（幂等：已存在则跳过，与 Python 版一致）。给定库文件完整路径。
+///
+/// 旧库（schema_version < 2）在此补齐短语三表并升级版本号；迁移为增量、幂等
+/// （CREATE TABLE IF NOT EXISTS），不影响单词 notes/cards/revlog。
 Future<String> ensureNotebookDb(String dbPath) async {
   initDatabaseFactory();
   final file = File(p.absolute(dbPath));
   await file.parent.create(recursive: true);
-  if (file.existsSync()) return file.path;
+  final abs = file.path;
 
-  final sql = await loadSchemaSql();
-  final db = await databaseFactory.openDatabase(file.path,
+  if (!file.existsSync()) {
+    final sql = await loadSchemaSql();
+    final db = await databaseFactory.openDatabase(abs,
+        options: OpenDatabaseOptions(singleInstance: false));
+    try {
+      await db.execute(sql);
+    } finally {
+      await db.close();
+    }
+    _migrated.add(abs);
+    return abs;
+  }
+
+  if (_migrated.contains(abs)) return abs;
+
+  // 旧库：schema_version < 2 则补齐短语三表并升级版本号
+  final db = await databaseFactory.openDatabase(abs,
       options: OpenDatabaseOptions(singleInstance: false));
   try {
-    await db.execute(sql);
+    final rows = await db.rawQuery(
+        "SELECT value FROM meta WHERE key = 'schema_version'");
+    final version = rows.isEmpty
+        ? 0
+        : int.tryParse((rows.first['value'] as String?) ?? '') ?? 0;
+    if (version < 2) {
+      await db.execute(await loadPhraseSchemaSql());
+      await db.rawInsert("INSERT OR REPLACE INTO meta (key, value) "
+          "VALUES ('schema_version', '2')");
+    }
   } finally {
     await db.close();
   }
-  return file.path;
+  _migrated.add(abs);
+  return abs;
 }
 
 /// 确保默认数据目录下的生词本库存在。返回库路径。

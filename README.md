@@ -4,14 +4,14 @@
 
 Lupa 是一款英语学习离线词典，重点不是"再多一个词典"，而是**把生词本和导出做到位**——你的学习数据回到你手里。
 
-目前提供两个入口，共享同一份 SQLite 数据（词库 + 生词本 + 发音缓存）：
+目前提供两个入口，共享同一份 SQLite 数据（词库 + 生词本 + 短语集 + 发音缓存）：
 
 - **Windows 桌面应用**（Flutter，主力入口）
 - **命令行工具**（Python，脚本化 / 批处理）
 
 ## 状态
 
-**v0.2.0** — 新增**设置模块**（外观 / 发音 / 复习 / 数据四组，全部写回 `config.json`）：主题、释义字号、默认口音、发音服务商地址、媒体缓存统计与清理、复习自动朗读、**数据目录运行时切换**（复制现有数据 / 新开空白）、生词本一键备份。复习卡新增 **3D 翻面**动效（响应系统"减少动效"），考试标签按类型配色并在查词卡与生词本详情弹窗统一。桌面版导出的 apkg 与 CLI 版经 Anki 官方后端导入对比验证完全一致。
+**v0.2.1** — 新增**短语集**：独立的短语数据模型（`phrases` / `phrase_examples` / `phrase_review_log` 三表，`schema_version` 1 → 2 并带旧库迁移）、记录 / 编辑 / 详情弹窗 / 标签 chips 筛选，以及**独立复习队列**与**独立 apkg / csv 导出**（自有 model / deck / guid `sha1("lupa::phrase::<text>")`，与单词导出完全隔离）。复习调度改为**按评分分级**推进固定档位：忘了回第一档、模糊保持当前档、记得前进一档、简单前进两档（单词与短语共用同一实现）。侧栏「复习」更名「**单词复习**」以区分短语复习。
 
 ## 已拍板的产品决策
 
@@ -20,9 +20,9 @@ Lupa 是一款英语学习离线词典，重点不是"再多一个词典"，而�
 | 词库 | ECDICT 340 万词 → 按 `frq`（当代语料库频率）裁剪到 **3 万词** |
 | AI | v1 纯离线；v2 接入 LLM 增量为可选 |
 | 发音 | 联网拉音标 / TTS（默认有道）→ 缓存本地 SQLite；播放走内存字节直喂（不落临时文件） |
-| 复习算法 | v1 **固定间隔** (1/3/7/15/30 天)；v2 引入 FSRS (MIT) |
+| 复习算法 | v1 **固定间隔** (1/3/7/15/30 天)，**按评分分级推进**（忘了/模糊/记得/简单 → 回第一档/保持/前进一档/前进两档）；v2 引入 FSRS (MIT) |
 | 同步 | 不做同步，本地优先 |
-| 桌面端 | **全 Dart 重写**（已放弃"Flutter + FastAPI 中间层"方案），CLI 保留作参考实现 |
+| 桌面端 | **全 Dart 重写**（已放弃"Flutter + FastAPI 中间层"方案）；CLI 仅作参考实现，已列入移除计划 |
 
 ## Windows 桌面应用
 
@@ -48,8 +48,8 @@ flutter build windows --release
 `flutter build windows --release` 后打包即得便携发行包（免安装、免环境变量）。发行 zip 统一放在构建输出目录：`desktop/build/windows/x64/runner/Release/Lupa-<version>-windows.zip`。
 
 ```
-Lupa-v0.2.0-windows.zip
-└── Lupa-v0.2.0-windows/         # 解压后进入此文件夹，双击 lupa.exe
+Lupa-v0.2.1-windows.zip
+└── Lupa-v0.2.1-windows/         # 解压后进入此文件夹，双击 lupa.exe
     ├── lupa.exe  + 运行时 DLL   # 双击即用
     ├── data/                    # 含 schema.sql（首次建库模板）
     └── lupa_data/               # 词典 dict.sqlite（解压即用，随包；notebook 首次运行自动创建）
@@ -59,8 +59,9 @@ Lupa-v0.2.0-windows.zip
 
 - **查词**：前缀联想、英美音标、考试标签（柯林斯/牛津/词频）、词形变化、一键收藏、美/英朗读
 - **生词本**：统计条（总词数/新词/复习中/今日到期/遗忘）、点词条目弹出详情卡片
-- **复习**：到期队列逐卡作答，评分即时推进调度并写 revlog；空格/点击**3D 翻面**显示释义
-- **导出**：Anki apkg + CSV（UTF-8 BOM），导出到数据目录 `exports/`
+- **单词复习**：到期队列逐卡作答，评分即时推进调度并写 revlog；空格/点击**3D 翻面**显示释义
+- **短语集**：记录短语（短语\*、释义\*、字面直译、典故来源、使用场景、场景标签、多条例句、标签），标签 chips 筛选 + 详情弹窗；**独立复习队列**（不与单词卡混排，入口在短语集右上角）与**独立 apkg / csv 导出**
+- **导出**：Anki apkg + CSV（UTF-8 BOM），导出到数据目录 `exports/`；单词与短语各自独立 model / deck / guid
 - **设置**：外观 / 发音 / 复习 / 数据四组写回 `config.json`；数据目录可**运行时切换**（复制现有 / 新开空白），媒体缓存可统计与一键清理，生词本可一键备份
 - 明暗双主题（「纸感 + 玉色」，WCAG AA 对比度达标）；考试标签按类型配色（柯林斯/牛津/考纲/自定义）
 
@@ -68,11 +69,13 @@ Lupa-v0.2.0-windows.zip
 
 | 按键 | 作用 |
 |---|---|
-| `Ctrl+F` / `Ctrl+B` / `Ctrl+R` / `Ctrl+E` | 切到 查词 / 生词本 / 复习 / 导出 |
-| `空格` | 复习页翻面 |
-| `1` `2` `3` `4` | 复习页评分（忘了 / 艰难 / 良好 / 轻松） |
+| `Ctrl+F` / `Ctrl+B` / `Ctrl+R` / `Ctrl+I` / `Ctrl+E` | 切到 查词 / 生词本 / 单词复习 / 短语集 / 导出 |
+| `空格` | 单词复习 / 短语复习 翻面 |
+| `1` `2` `3` `4` | 复习页评分（忘了 / 模糊 / 记得 / 简单） |
 
 ## 命令行工具
+
+> CLI 是 MVP 时代的参考实现，已列入移除计划：不含短语集等新增能力，版本号冻结在 `0.2.0`。
 
 ### 快速开始
 
@@ -116,12 +119,13 @@ lupa --help
                      ▼
    LUPA_HOME: dict.sqlite (3万词词库)
               notebook.sqlite (notes/cards/revlog
+                               + phrases/phrase_examples/phrase_review_log
                                + audio/phonetic/ai 缓存表)
 ```
 
-- **业务逻辑双语言对齐**：`notebook/repo` / `dict/query` / `scheduler` / `media/*` / `export/*` 在 Dart 与 Python 各有一份，行为契约以 Python 版为准；apkg 稳定 guid（`sha1("lupa::word")`）与 model/deck id 两版一致，混用不产生重复卡片。
-- **导出一致性已验证**：`desktop/tool/anki_import_compare.py` 将两版 apkg 分别灌入全新 Anki collection（官方 `anki` 库，同一 Rust 导入后端），guid/字段/model/deck 全部一致。
-- **验证脚本**：`desktop/tool/verify_*.dart` 六组，均走临时库、不污染真实数据；`verify_e2e.dart` 覆盖 查词→加词→复习→导出 全链路 15 项断言。
+- **Flutter 为唯一事实源**：业务逻辑以 Dart（`notebook/repo` / `dict/query` / `scheduler` / `phrase/repo` / `media/*` / `export/*`）为准；`src/lupa/`（Python CLI）是 MVP 时代的参考实现，已列入移除计划，后续功能不再与其同步。apkg 稳定 guid 单词用 `sha1("lupa::word")`、短语用 `sha1("lupa::phrase::<text>")`，各自独立 model / deck，混用不产生重复卡片。
+- **导出一致性已验证**：`desktop/tool/anki_import_compare.py` 曾用官方 `anki` 库比对 Python 与 Dart 两版 apkg；Python 版移除后，该脚本只校验 Dart 版产出。
+- **验证脚本**：`desktop/tool/verify_*.dart` 七组（新增 `verify_phrase_repo.dart`：短语建表 / 旧库迁移 / CRUD / 调度 / 导出），均走临时库、不污染真实数据；`verify_e2e.dart` 覆盖 查词→加词→复习→导出 全链路 15 项断言。
 
 ### 项目结构
 
@@ -135,12 +139,13 @@ src/lupa/                  # Python CLI
 └── media/                 # phonetic.py / tts.py
 
 desktop/                   # Flutter Windows 桌面版
-├── lib/data/              # data_home（数据目录解析）/ config / notebook_db / schema.sql（复用 Python 版）
-├── lib/dict|notebook|media|export/   # 与 Python 版同构的业务模块
+├── lib/data/              # data_home / config / notebook_db / schema.sql（唯一事实源，含短语三表）
+├── lib/dict|notebook|media|export/   # 单词侧业务模块（repo / query / scheduler / media / export）
+├── lib/phrase/            # 短语仓库层（独立三表 CRUD / 到期队列 / 统计，复用 scheduler 纯函数）
 ├── lib/theme/             # 「纸感 + 玉色」设计 token（明暗双主题）
 ├── lib/state/             # AppState 编排层
-├── lib/widgets/           # AppShell 侧栏 + 词详情卡片等
-├── lib/pages/             # 查词 / 生词本 / 复习 / 导出 / 设置 五页
+├── lib/widgets/           # AppShell 侧栏 + 词详情卡片 + 短语组件等
+├── lib/pages/             # 查词 / 生词本 / 单词复习 / 短语集 / 短语复习 / 导出 / 设置
 └── tool/                  # apkg spike + verify_* 验证脚本 + Anki 导入对比
 ```
 

@@ -14,9 +14,12 @@ import 'package:lupa/data/data_home.dart';
 import 'package:lupa/data/notebook_db.dart';
 import 'package:lupa/export/apkg.dart' as apkg_export;
 import 'package:lupa/export/csv.dart' as csv_export;
+import 'package:lupa/export/phrase_apkg.dart' as phrase_apkg_export;
+import 'package:lupa/export/phrase_csv.dart' as phrase_csv_export;
 import 'package:lupa/media/phonetic.dart';
 import 'package:lupa/media/tts.dart';
 import 'package:lupa/notebook/repo.dart';
+import 'package:lupa/phrase/repo.dart' as phrase_repo;
 
 /// 全局应用状态。
 class AppState extends ChangeNotifier {
@@ -27,6 +30,11 @@ class AppState extends ChangeNotifier {
   Map<String, int> stats = const {};
   List<NotebookEntry> entries = const [];
   List<NotebookEntry> due = const [];
+  // ---- 短语集状态（与单词生词本完全隔离）----
+  List<phrase_repo.PhraseEntry> phraseEntries = const [];
+  List<phrase_repo.PhraseEntry> phraseDue = const [];
+  Map<String, int> phraseStats = const {};
+  List<String> phraseTags = const [];
   ThemeMode themeMode = ThemeMode.system;
   // ---- 设置模块状态（config['settings'] 的运行时镜像）----
   int defFontSize = 14;
@@ -72,6 +80,10 @@ class AppState extends ChangeNotifier {
     stats = await notebookStats(nbPath);
     entries = await listWords(nbPath, limit: 500);
     due = await dueWords(nbPath, limit: 100);
+    phraseStats = await phrase_repo.phraseStats(nbPath);
+    phraseEntries = await phrase_repo.listPhrases(nbPath, limit: 500);
+    phraseDue = await phrase_repo.duePhrases(nbPath, limit: 100);
+    phraseTags = await phrase_repo.phraseTags(nbPath);
     notifyListeners();
   }
 
@@ -170,6 +182,37 @@ class AppState extends ChangeNotifier {
 
   Future<csv_export.CsvExportReport> exportCsvTo(String path) =>
       csv_export.exportCsv(nbPath, path);
+
+  // ---- 短语集 CRUD / 复习 / 导出 ----
+
+  Future<int> addPhraseEntry(phrase_repo.PhraseInput input) async {
+    final id = await phrase_repo.addPhrase(nbPath, input);
+    await refresh();
+    return id;
+  }
+
+  Future<void> updatePhraseEntry(int id, phrase_repo.PhraseInput input) async {
+    await phrase_repo.updatePhrase(nbPath, id, input);
+    await refresh();
+  }
+
+  Future<bool> removePhraseEntry(int id) async {
+    final ok = await phrase_repo.removePhrase(nbPath, id);
+    await refresh();
+    return ok;
+  }
+
+  /// 短语复习评分。返回 (nextIvlDays, nextDueUnixSeconds)。
+  Future<(int, int)> answerPhraseCard(int id, int ease) =>
+      phrase_repo.answerPhrase(nbPath, id, ease);
+
+  Future<phrase_apkg_export.PhraseExportReport> exportPhraseApkgTo(
+          String path) =>
+      phrase_apkg_export.exportPhraseApkg(nbPath, path);
+
+  Future<phrase_csv_export.PhraseCsvExportReport> exportPhraseCsvTo(
+          String path) =>
+      phrase_csv_export.exportPhraseCsv(nbPath, path);
 
   // ---- 设置模块 ----
 

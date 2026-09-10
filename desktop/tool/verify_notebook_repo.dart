@@ -24,14 +24,28 @@ Future<void> main() async {
   final tmp = await Directory.systemTemp.createTemp('lupa_nb_verify_');
   final nbPath = p.absolute(p.join(tmp.path, 'notebook.sqlite'));
 
-  // ---------- 4.2 调度纯函数（与 Python 版逐分支对照） ----------
-  check('4.2 nextInterval(0, Good)=1', nextInterval(0, easeGood) == 1);
+  // ---------- 4.2 调度纯函数（按评分分级推进） ----------
+  check('4.2 nextInterval(0, Good)=3 新词与 1 天卡同档',
+      nextInterval(0, easeGood) == 3);
   check('4.2 nextInterval(1, Good)=3', nextInterval(1, easeGood) == 3);
   check('4.2 nextInterval(3, Good)=7', nextInterval(3, easeGood) == 7);
   check('4.2 nextInterval(7, Good)=15', nextInterval(7, easeGood) == 15);
   check('4.2 nextInterval(15, Good)=30', nextInterval(15, easeGood) == 30);
   check('4.2 nextInterval(30, Good)=30 顶格', nextInterval(30, easeGood) == 30);
   check('4.2 nextInterval(7, Again)=1 答错回退', nextInterval(7, easeAgain) == 1);
+  // 分级：模糊保持当前档、简单前进两档（记得保持"前进一档"不变）
+  check('4.2 nextInterval(7, Hard)=7 模糊不推进', nextInterval(7, easeHard) == 7);
+  check('4.2 nextInterval(15, Hard)=15', nextInterval(15, easeHard) == 15);
+  check('4.2 nextInterval(7, Easy)=30 简单前进两档',
+      nextInterval(7, easeEasy) == 30);
+  check('4.2 nextInterval(15, Easy)=30 顶格', nextInterval(15, easeEasy) == 30);
+  check('4.2 nextInterval(0, Hard)=1 新词模糊进第一档',
+      nextInterval(0, easeHard) == 1);
+  check('4.2 nextInterval(0, Easy)=7 新词简单进第三档',
+      nextInterval(0, easeEasy) == 7);
+  check('4.2 7 天卡：模糊 < 记得 < 简单',
+      nextInterval(7, easeHard) < nextInterval(7, easeGood) &&
+          nextInterval(7, easeGood) < nextInterval(7, easeEasy));
   final (ivl, due) = dueTimestamp(1, easeGood, now: 1000000);
   check('4.2 dueTimestamp(1,Good)=(3, 1000000+3*86400)',
       ivl == 3 && due == 1000000 + 3 * 86400);
@@ -93,7 +107,7 @@ Future<void> main() async {
   final card = cards.where((c) => c.word == 'abandon').first;
 
   final (nextIvl, nextDue) = await answerCard(nbPath, card.cardId, easeGood);
-  check('4.3 新卡 Good => ivl=1', nextIvl == 1, detail: nextIvl);
+  check('4.3 新卡 Good => ivl=3', nextIvl == 3, detail: nextIvl);
 
   final after = await listWords(nbPath, includeSuspended: true);
   final a = after.where((c) => c.word == 'abandon').first;
@@ -108,12 +122,20 @@ Future<void> main() async {
   check('4.3 忘了 => ivl=1', ivl2 == 1 && a2.ivl == 1);
   check('4.3 忘了 => lapses=1 type=Learn(1)', a2.lapses == 1 && a2.cardType == 1);
 
+  // 分级推进落到真实卡片上：记得前进一档、模糊保持、简单前进两档
+  final (ivl3, _) = await answerCard(nbPath, a.cardId, easeGood);
+  check('4.3 间隔 1 记得 => 3', ivl3 == 3, detail: ivl3);
+  final (ivl4, _) = await answerCard(nbPath, a.cardId, easeHard);
+  check('4.3 间隔 3 模糊 => 3 保持当前档', ivl4 == 3, detail: ivl4);
+  final (ivl5, _) = await answerCard(nbPath, a.cardId, easeEasy);
+  check('4.3 间隔 3 简单 => 15 前进两档', ivl5 == 15, detail: ivl5);
+
   // revlog 每次答题一条
   final con = await databaseFactory.openDatabase(nbPath);
   final revlogCount =
       (await con.rawQuery('SELECT COUNT(*) AS c FROM revlog')).first.values.first as int;
   await con.close();
-  check('4.3 revlog 记录=2', revlogCount == 2, detail: revlogCount);
+  check('4.3 revlog 记录=5', revlogCount == 5, detail: revlogCount);
 
   await tmp.delete(recursive: true);
   stdout.writeln(failures == 0 ? 'ALL PASS' : 'FAILURES: $failures');

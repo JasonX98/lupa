@@ -56,9 +56,11 @@ Future<void> main() async {
   check('新卡进入到期队列', due.isNotEmpty && due.first.ivl == 0);
   final cardId = due.first.cardId;
   final (nextIvl, nextDue) = await answerCard(nb, cardId, 3); // 记得
-  check('评分 3 后间隔推进到 1 天', nextIvl == 1, 'nextIvl=$nextIvl');
+  // 新卡与间隔 1 天的卡同档：记得前进一档 → 3 天
+  check('评分 3 后间隔推进到 3 天', nextIvl == 3, 'nextIvl=$nextIvl');
   final nowSec = DateTime.now().millisecondsSinceEpoch ~/ 1000;
-  check('nextDue = now + 86400', (nextDue - nowSec - 86400).abs() <= 2);
+  check('nextDue = now + 3*86400',
+      (nextDue - nowSec - 3 * 86400).abs() <= 2);
   due = await dueWords(nb);
   check('答对后当天不再到期', due.isEmpty || due.first.cardId != cardId);
 
