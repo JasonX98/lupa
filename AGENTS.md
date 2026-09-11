@@ -70,7 +70,7 @@ dart run tool/reset_review_state.dart --all --apply      # 真正写入
 3. **媒体缓存键永远三段式**：`provider:word:format`（如 `youdao:abandon:mp3-us`），URL 单列字段。
 4. **apkg 稳定 guid**：单词 `sha1("lupa::word")`、短语 `sha1("lupa::phrase::<text>")`；各自独立 model/deck，混用不产生重复卡片。
 5. **数据目录**：`LUPA_HOME` 环境变量优先；未设时默认 `<exe>/lupa_data`（便携默认，解压即用）。
-6. **版本号**：`desktop/pubspec.yaml` 的 `version` 为唯一事实源，统一为 `x.y.z`（当前 `0.2.1`）。
+6. **版本号**：`desktop/pubspec.yaml` 的 `version` 为唯一事实源，统一为 `x.y.z`（当前 `0.2.3`）。
 7. **发行 zip 位置**：桌面发布 zip（`Lupa-<version>-windows.zip`）统一放在 `desktop/build/windows/x64/runner/Release/`（`flutter build windows --release` 的输出目录），不放在仓库根目录。
 
 ## 验证

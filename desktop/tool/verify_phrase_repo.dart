@@ -315,6 +315,28 @@ Future<void> main() async {
       csvText.contains('记者 <提前> 抖出 & 内幕') &&
           !csvText.contains('&lt;提前&gt;'));
 
+  // ================= 3.3 按标签筛选导出（导出页短语集分组用）=================
+  final oralApkgPath = p.join(tmp.path, 'phrases-oral.apkg');
+  final oralReport = await exportPhraseApkg(nbPath, oralApkgPath, tag: '口语');
+  final oralFields = await _readApkgFields(oralApkgPath, 'spill the beans');
+  final otherFields = await _readApkgFields(oralApkgPath, 'once in a blue moon');
+  check('3.3 按标签导出 apkg：只含该标签短语（笔记数 1/2）',
+      oralReport.count == 1 && oralFields.noteCount == 1,
+      detail: oralReport);
+  check('3.3 按标签导出 apkg：读回命中该标签短语且不含另一条',
+      oralFields.guid == phraseStableGuid('spill the beans') &&
+          otherFields.guid.isEmpty,
+      detail: '命中=${oralFields.guid} 另一条=${otherFields.guid}');
+
+  final oralCsvPath = p.join(tmp.path, 'phrases-oral.csv');
+  final oralCsvReport = await exportPhraseCsv(nbPath, oralCsvPath, tag: '口语');
+  final oralCsvText = File(oralCsvPath).readAsStringSync();
+  check('3.3 按标签导出 csv：只含该标签短语',
+      oralCsvReport.count == 1 &&
+          oralCsvText.contains('spill the beans') &&
+          !oralCsvText.contains('once in a blue moon'),
+      detail: oralCsvReport);
+
   // ================= 2.5 评分分级推进（端到端）=================
   // 独立新短语，避免影响上面的统计 / 导出断言
   final gradedId = await addPhrase(

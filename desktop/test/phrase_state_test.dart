@@ -111,4 +111,44 @@ void main() {
     expect(csv.count, 1);
     expect(File(csv.path).existsSync(), true);
   });
+
+  test('4.1 按标签导出：apkg / csv 只含该标签的短语', () async {
+    final state = await initState();
+    await state.addPhraseEntry(const PhraseInput(
+        phrase: 'bite the bullet', meaning: '硬着头皮上', tags: '口语'));
+    await state.addPhraseEntry(const PhraseInput(
+        phrase: 'spill the beans', meaning: '泄密', tags: '书面'));
+
+    // apkg：report.count 就是写进牌组的笔记数，1 != 2 说明筛选真的生效了
+    final apkg = await state.exportPhraseApkgTo(
+        p.join(dataDir.path, 'tag.apkg'),
+        tag: '口语');
+    expect(apkg.count, 1);
+    expect(File(apkg.path).existsSync(), true);
+    expect(apkg.sizeBytes, greaterThan(0));
+
+    // csv：纯文本读回，直接断言内容（含该标签短语、不含另一条）
+    final csv = await state.exportPhraseCsvTo(
+        p.join(dataDir.path, 'tag.csv'),
+        tag: '口语');
+    expect(csv.count, 1);
+    final text = File(csv.path).readAsStringSync();
+    expect(text, contains('bite the bullet'));
+    expect(text, isNot(contains('spill the beans')));
+  });
+
+  test('4.1 省略 tag 时导出全部（行为与今日一致）', () async {
+    final state = await initState();
+    await state.addPhraseEntry(const PhraseInput(
+        phrase: 'bite the bullet', meaning: '硬着头皮上', tags: '口语'));
+    await state.addPhraseEntry(const PhraseInput(
+        phrase: 'spill the beans', meaning: '泄密', tags: '书面'));
+
+    final csv =
+        await state.exportPhraseCsvTo(p.join(dataDir.path, 'all.csv'));
+    expect(csv.count, 2);
+    final text = File(csv.path).readAsStringSync();
+    expect(text, contains('bite the bullet'));
+    expect(text, contains('spill the beans'));
+  });
 }

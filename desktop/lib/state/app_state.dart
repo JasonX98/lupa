@@ -171,14 +171,22 @@ class AppState extends ChangeNotifier {
   /// 备份生词本（复制 notebook.sqlite 为带时间戳备份）。返回备份路径。
   Future<String> backupNote() => backupNotebook(nbPath);
 
-  /// 带时间戳的导出文件名，如 lupa-20260906-1015.apkg
-  String exportFileName(String ext) {
+  /// 导出文件名基名（不含扩展名）：生词本 `lupa-<yyyyMMdd-HHmm>`、
+  /// 短语集 `lupa-phrases-<yyyyMMdd-HHmm>`。两条命名线分开，
+  /// 同一分钟内先后导出两类不会互相覆盖（见 design D4）。
+  String exportBaseName({bool phrases = false}) {
     final n = DateTime.now();
     String two(int v) => v.toString().padLeft(2, '0');
     final stamp = '${n.year}${two(n.month)}${two(n.day)}'
         '-${two(n.hour)}${two(n.minute)}';
-    return 'lupa-$stamp.$ext';
+    return '${phrases ? 'lupa-phrases' : 'lupa'}-$stamp';
   }
+
+  /// 生词本导出文件名，如 lupa-20260906-1015.apkg
+  String exportFileName(String ext) => '${exportBaseName()}.$ext';
+
+  /// 短语集导出文件名，如 lupa-phrases-20260906-1015.apkg
+  String phraseExportFileName(String ext) => '${exportBaseName(phrases: true)}.$ext';
 
   Future<apkg_export.ExportReport> exportApkgTo(String path) =>
       apkg_export.exportApkg(nbPath, path);
@@ -213,13 +221,15 @@ class AppState extends ChangeNotifier {
   Future<bool> undoAnswerPhrase(phrase_repo.PhraseAnswerReceipt r) =>
       phrase_repo.undoAnswerPhrase(nbPath, r);
 
+  /// 导出短语集 apkg。`tag` 非空时只导出带该标签的短语（null/空 = 全部）。
   Future<phrase_apkg_export.PhraseExportReport> exportPhraseApkgTo(
-          String path) =>
-      phrase_apkg_export.exportPhraseApkg(nbPath, path);
+          String path, {String? tag}) =>
+      phrase_apkg_export.exportPhraseApkg(nbPath, path, tag: tag);
 
+  /// 导出短语集 CSV。`tag` 语义同 [exportPhraseApkgTo]。
   Future<phrase_csv_export.PhraseCsvExportReport> exportPhraseCsvTo(
-          String path) =>
-      phrase_csv_export.exportPhraseCsv(nbPath, path);
+          String path, {String? tag}) =>
+      phrase_csv_export.exportPhraseCsv(nbPath, path, tag: tag);
 
   // ---- 设置模块 ----
 

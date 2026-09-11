@@ -125,13 +125,15 @@ String _sceneList(List<String> scenes) {
 }
 
 /// 导出短语集为 Anki .apkg（Legacy 2 格式，ganki）。
+/// `tag` 非空时只导出带该标签的短语（null/空 = 全部）。
 Future<PhraseExportReport> exportPhraseApkg(
   String nbPath,
   String outPath, {
   int limit = 10000,
   String deckName = 'Lupa::短语集',
+  String? tag,
 }) async {
-  final entries = await listPhrases(nbPath, limit: limit);
+  final entries = await listPhrases(nbPath, limit: limit, tag: tag);
   final out = File(p.absolute(outPath));
   await out.parent.create(recursive: true);
 
