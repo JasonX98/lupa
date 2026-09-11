@@ -176,6 +176,73 @@ class ExampleEditRow extends StatelessWidget {
   }
 }
 
+/// 场景编辑行控制器：由父表单持有，便于读取 / 聚焦 / 销毁。
+class SceneEditRowController {
+  final TextEditingController scene;
+  final FocusNode focus;
+  SceneEditRowController({String sceneText = ''})
+      : scene = TextEditingController(text: sceneText),
+        focus = FocusNode();
+  void dispose() {
+    scene.dispose();
+    focus.dispose();
+  }
+}
+
+/// 使用场景编辑行：一条场景（可视觉换行，但不产生行内换行）+ 删除。
+///
+/// 回车 = 新增下一条场景：`textInputAction: done` 让引擎把回车翻成 done action
+/// 而**不是**插入换行，onSubmitted 里再新增一行（契约见
+/// openspec/changes/phrase-scene-list design D2/D3）。
+///
+/// `onEditingComplete` 必须给：否则 EditableText 会在 done 时先 unfocus，
+/// 中文输入法组字中被夺焦会中断候选。组字中（composing 有效）直接放行，
+/// 交给输入法确认候选。
+class SceneEditRow extends StatelessWidget {
+  final SceneEditRowController controller;
+  final VoidCallback onRemove;
+  final VoidCallback onSubmit;
+  const SceneEditRow({
+    super.key,
+    required this.controller,
+    required this.onRemove,
+    required this.onSubmit,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Expanded(
+          child: TextField(
+            controller: controller.scene,
+            focusNode: controller.focus,
+            minLines: 1,
+            maxLines: null,
+            keyboardType: TextInputType.multiline,
+            textInputAction: TextInputAction.done,
+            onEditingComplete: () {},
+            onSubmitted: (_) {
+              if (controller.scene.value.composing.isValid) return;
+              onSubmit();
+            },
+            decoration: const InputDecoration(
+              isDense: true,
+              hintText: '什么场合用？对谁说？（回车加下一条）',
+            ),
+          ),
+        ),
+        IconButton(
+          tooltip: '删除场景',
+          onPressed: onRemove,
+          icon: const Icon(Icons.close_rounded, size: 18),
+        ),
+      ]),
+    );
+  }
+}
+
 /// 收录日期 YYYY-MM-DD（详情弹窗「收录于 …」用）。
 String formatAddedDate(int unixSeconds) {
   final d = DateTime.fromMillisecondsSinceEpoch(unixSeconds * 1000);

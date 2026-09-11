@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:lupa/phrase/repo.dart';
+import 'package:lupa/phrase/scene_text.dart';
 import 'package:lupa/state/app_state.dart';
 import 'package:lupa/theme/lupa_theme.dart';
 import 'package:lupa/widgets/phrase_bits.dart';
@@ -401,6 +402,8 @@ Future<void> showPhraseDetailDialog(
           isDark ? LupaColors.jadeSoftDark : LupaColors.jadeSoftLight;
       final danger = isDark ? LupaColors.dangerDark : LupaColors.dangerLight;
       final border = theme.dividerColor;
+      // 多条使用场景：存的是 '\n' 分隔的单列文本，这里按条渲染
+      final scenes = splitScenes(entry.scene);
 
       Widget section(String title, Widget child) => Padding(
             padding: const EdgeInsets.only(top: 20),
@@ -546,14 +549,27 @@ Future<void> showPhraseDetailDialog(
                                       ? '通用'
                                       : entry.sceneTag.trim(),
                                   kind: TagKind.exam),
-                              if (entry.scene.trim().isNotEmpty) ...[
+                              if (scenes.isNotEmpty) ...[
                                 const SizedBox(width: 10),
                                 Expanded(
-                                  child: Text(entry.scene.trim(),
-                                      style: TextStyle(
-                                          fontSize: 13.5,
-                                          height: 1.7,
-                                          color: tx2)),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      for (var i = 0;
+                                          i < scenes.length;
+                                          i++)
+                                        Padding(
+                                          padding: EdgeInsets.only(
+                                              top: i == 0 ? 0 : 6),
+                                          child: Text(scenes[i],
+                                              style: TextStyle(
+                                                  fontSize: 13.5,
+                                                  height: 1.7,
+                                                  color: tx2)),
+                                        ),
+                                    ],
+                                  ),
                                 ),
                               ],
                             ],
@@ -670,9 +686,9 @@ class _PhraseFormDialogState extends State<_PhraseFormDialog> {
   late final TextEditingController _meaning;
   late final TextEditingController _lit;
   late final TextEditingController _origin;
-  late final TextEditingController _scene;
   late final TextEditingController _tags;
   late String _sceneTag;
+  final List<SceneEditRowController> _scenes = [];
   final List<ExampleEditRowController> _examples = [];
 
   static const _sceneTagPresets = ['通用', '口语', '书面', '正式'];
@@ -685,12 +701,36 @@ class _PhraseFormDialogState extends State<_PhraseFormDialog> {
     _meaning = TextEditingController(text: e?.meaning ?? '');
     _lit = TextEditingController(text: e?.lit ?? '');
     _origin = TextEditingController(text: e?.origin ?? '');
-    _scene = TextEditingController(text: e?.scene ?? '');
     _tags = TextEditingController(text: e?.tags.join(', ') ?? '');
     _sceneTag = (e?.sceneTag.trim().isNotEmpty ?? false) ? e!.sceneTag : '通用';
+    // 多条场景：存的是 '\n' 分隔的单列文本，这里拆成 N 行
+    for (final s in splitScenes(e?.scene ?? '')) {
+      _scenes.add(SceneEditRowController(sceneText: s));
+    }
+    // 空场景也留一个输入框，避免「使用场景」整块消失
+    if (_scenes.isEmpty) _scenes.add(SceneEditRowController());
     for (final ex in e?.examples ?? const <PhraseExample>[]) {
       _examples.add(ExampleEditRowController(enText: ex.en, zhText: ex.zh));
     }
+  }
+
+  /// 追加 / 插入一条场景行；新增后把焦点交给新行（回车连续录入）。
+  void _addScene({SceneEditRowController? after}) {
+    final next = SceneEditRowController();
+    setState(() {
+      final i = after == null ? _scenes.length : _scenes.indexOf(after) + 1;
+      _scenes.insert(i, next);
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) next.focus.requestFocus();
+    });
+  }
+
+  void _removeScene(SceneEditRowController c) {
+    setState(() {
+      _scenes.remove(c);
+    });
+    c.dispose();
   }
 
   @override
@@ -699,8 +739,10 @@ class _PhraseFormDialogState extends State<_PhraseFormDialog> {
     _meaning.dispose();
     _lit.dispose();
     _origin.dispose();
-    _scene.dispose();
     _tags.dispose();
+    for (final c in _scenes) {
+      c.dispose();
+    }
     for (final c in _examples) {
       c.dispose();
     }
@@ -728,7 +770,7 @@ class _PhraseFormDialogState extends State<_PhraseFormDialog> {
         meaning: meaning,
         lit: _lit.text,
         origin: _origin.text,
-        scene: _scene.text,
+        scene: joinScenes(_scenes.map((c) => c.scene.text)),
         sceneTag: _sceneTag,
         tags: _tags.text,
         examples: examples,
@@ -787,6 +829,7 @@ class _PhraseFormDialogState extends State<_PhraseFormDialog> {
                 ),
               ),
               const SizedBox(height: 10),
+              // 场景标签（语域）与标签同为短字段，合占一行
               Row(children: [
                 SizedBox(
                   width: 160,
@@ -803,14 +846,36 @@ class _PhraseFormDialogState extends State<_PhraseFormDialog> {
                 const SizedBox(width: 10),
                 Expanded(
                   child: TextField(
-                    controller: _scene,
+                    controller: _tags,
                     decoration: const InputDecoration(
-                      labelText: '使用场景',
-                      hintText: '如 面对困难任务时的自我鼓励',
+                      labelText: '标签',
+                      hintText: '逗号分隔，如 口语, 通用',
                     ),
                   ),
                 ),
               ]),
+              const SizedBox(height: 14),
+              // 使用场景：一条一行，独占全宽（回车新增、可逐条删除）
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Text('使用场景',
+                    style: Theme.of(context).textTheme.labelSmall),
+              ),
+              const SizedBox(height: 6),
+              for (final c in _scenes)
+                SceneEditRow(
+                  controller: c,
+                  onRemove: () => _removeScene(c),
+                  onSubmit: () => _addScene(after: c),
+                ),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton.icon(
+                  onPressed: () => _addScene(),
+                  icon: const Icon(Icons.add, size: 16),
+                  label: const Text('加一条场景'),
+                ),
+              ),
               const SizedBox(height: 14),
               Align(
                 alignment: Alignment.centerLeft,
@@ -833,14 +898,6 @@ class _PhraseFormDialogState extends State<_PhraseFormDialog> {
                       () => _examples.add(ExampleEditRowController())),
                   icon: const Icon(Icons.add, size: 16),
                   label: const Text('加一条例句'),
-                ),
-              ),
-              const SizedBox(height: 6),
-              TextField(
-                controller: _tags,
-                decoration: const InputDecoration(
-                  labelText: '标签',
-                  hintText: '逗号分隔，如 口语, 通用',
                 ),
               ),
             ],

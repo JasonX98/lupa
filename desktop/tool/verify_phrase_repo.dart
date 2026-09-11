@@ -1,5 +1,6 @@
 // 验证短语集：建表 / 旧库迁移 / CRUD / 调度 / 统计 / 导出（临时库，不污染真实数据）。
 // 用法: dart run tool/verify_phrase_repo.dart
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:path/path.dart' as p;
@@ -11,6 +12,7 @@ import 'package:lupa/export/phrase_apkg.dart';
 import 'package:lupa/export/phrase_csv.dart';
 import 'package:lupa/notebook/scheduler.dart';
 import 'package:lupa/phrase/repo.dart';
+import 'package:lupa/phrase/scene_text.dart';
 
 var failures = 0;
 
@@ -177,6 +179,59 @@ Future<void> main() async {
   }
   check('2.2 update 未找到报错', notFound);
 
+  // ---- 多条使用场景：仍是单列 TEXT + '\n' 分隔（不新建表、无需迁移）----
+  final sceneId = await addPhrase(
+    nbPath,
+    const PhraseInput(
+      phrase: 'hear me out',
+      meaning: '先别急着反驳，听我说完',
+      scene: '争论 / 分歧时：对方正要反驳，先喊一句稳住局面\n'
+          '分享大胆想法时：想发表不寻常观点前打预防针（如 "Hear me out, but I think..."）\n'
+          '解释误会时：被误解，请求完整陈述',
+    ),
+  );
+  final withScenes = await getPhrase(nbPath, sceneId);
+  final readScenes = splitScenes(withScenes!.scene);
+  check('1.2 三条场景原样落库（顺序不变）',
+      readScenes.length == 3 &&
+          readScenes.first.startsWith('争论') &&
+          readScenes[1].contains('Hear me out') &&
+          readScenes.last.startsWith('解释误会'),
+      detail: readScenes.length);
+  check('1.2 scene 单列以换行分隔',
+      withScenes.scene.split('\n').length == 3, detail: withScenes.scene);
+
+  // 归一化后改两条：不残留旧条、不产生空白分隔
+  await updatePhrase(
+    nbPath,
+    sceneId,
+    PhraseInput(
+      phrase: 'hear me out',
+      meaning: '先别急着反驳，听我说完',
+      scene: joinScenes(['  改一  ', '', '  \t ', '改二']),
+    ),
+  );
+  final afterSceneUpdate = await getPhrase(nbPath, sceneId);
+  check('1.2 update 两条后不残留旧条',
+      afterSceneUpdate!.scene == '改一\n改二', detail: afterSceneUpdate.scene);
+  check('1.2 update 后拆条仍为 2',
+      splitScenes(afterSceneUpdate.scene).length == 2);
+
+  // 数据层兜底：绕过 UI 直接给 repo 传带空行/空白的原始文本，也必须被归一化
+  await updatePhrase(
+    nbPath,
+    sceneId,
+    const PhraseInput(
+      phrase: 'hear me out',
+      meaning: '先别急着反驳，听我说完',
+      scene: '  甲  \n\n  \t\n乙\n',
+    ),
+  );
+  final rawNormalized = await getPhrase(nbPath, sceneId);
+  check('1.3 repo 层归一化空行（不依赖 UI 调用方）',
+      rawNormalized!.scene == '甲\n乙', detail: rawNormalized.scene);
+  await removePhrase(nbPath, sceneId);
+
   // 级联删除
   final okDel = await removePhrase(nbPath, id1);
   check('2.2 removePhrase=true', okDel);
@@ -194,15 +249,23 @@ Future<void> main() async {
   check('2.2 重复移除=false', (await removePhrase(nbPath, id1)) == false);
 
   // ================= 3.1 / 3.2 导出 =================
-  // 给剩余短语补一条例句，验证 CSV 例句列
+  // 给剩余短语补一条例句 + 三条使用场景 + 多行典故，验证场景列表 / CSV 例句列
+  const sceneLines = [
+    '朋友追问时：不小心说漏了嘴',
+    '新闻语境：记者 <提前> 抖出 & 内幕',
+    '解释误会时：想坦白却又犹豫',
+  ];
+  const originText = '19 世纪酒吧：把豆子倒进锅里分豆子\n谁泄了密就少一份';
   await updatePhrase(
     nbPath,
     all.firstWhere((e) => e.phrase == 'spill the beans').id,
-    const PhraseInput(
+    PhraseInput(
       phrase: 'spill the beans',
       meaning: '泄露秘密',
+      origin: originText,
       tags: '口语',
-      examples: [PhraseExample(en: 'Tom spilled the beans.', zh: '汤姆说漏了嘴。')],
+      scene: joinScenes(sceneLines),
+      examples: const [PhraseExample(en: 'Tom spilled the beans.', zh: '汤姆说漏了嘴。')],
     ),
   );
 
@@ -212,6 +275,25 @@ Future<void> main() async {
       apkgReport.count == 2 && File(apkgPath).lengthSync() > 0, detail: apkgReport);
   check('3.1 短语 guid 与单词 guid 命名空间不同',
       phraseStableGuid('x') != word_apkg.stableGuid('x'));
+
+  // 读回 apkg 内 collection.anki2 的字段（python 解 zip + sqlite，与 verify_export 同法）
+  final apkgFields = await _readApkgFields(apkgPath, 'spill the beans');
+  check('4.1 apkg 场景为 <ul class="scene-list"> + 3 个 <li>',
+      apkgFields.scene.contains('<ul class="scene-list">') &&
+          '<li>'.allMatches(apkgFields.scene).length == 3,
+      detail: apkgFields.scene);
+  check('4.1 apkg 字段 HTML 转义（< & 按字面显示）',
+      apkgFields.scene.contains('&lt;提前&gt;') &&
+          apkgFields.scene.contains('&amp;') &&
+          !apkgFields.scene.contains('<提前>'),
+      detail: apkgFields.scene);
+  check('4.1 apkg 多行典故保留换行（<br>）',
+      apkgFields.origin.contains('<br>') &&
+          !apkgFields.origin.contains('\n'),
+      detail: apkgFields.origin);
+  check('4.1 apkg 卡片携带稳定 guid（重复导入更新同一张卡）',
+      apkgFields.guid == phraseStableGuid('spill the beans'),
+      detail: apkgFields.guid);
 
   final csvPath = p.join(tmp.path, 'phrases.csv');
   final csvReport = await exportPhraseCsv(nbPath, csvPath);
@@ -226,6 +308,12 @@ Future<void> main() async {
       detail: csvBytes.take(3).toList());
   check('3.2 csv 表头正确', csvText.contains('phrase,lit,meaning,origin,scene,scene_tag,tags'));
   check('3.2 csv 含例句列内容', csvText.contains('Tom spilled the beans.'));
+  check('4.2 csv 场景列按行保留三条',
+      csvText.contains('"朋友追问时：不小心说漏了嘴\n新闻语境：记者 <提前> 抖出 & 内幕\n解释误会时：想坦白却又犹豫"'),
+      detail: '多行单元格应被引号包裹');
+  check('4.2 csv 场景列不被 HTML 转义（导出是纯文本）',
+      csvText.contains('记者 <提前> 抖出 & 内幕') &&
+          !csvText.contains('&lt;提前&gt;'));
 
   // ================= 2.5 评分分级推进（端到端）=================
   // 独立新短语，避免影响上面的统计 / 导出断言
@@ -315,4 +403,51 @@ Future<void> main() async {
   await tmp.delete(recursive: true);
   await tmp2.delete(recursive: true);
   stdout.writeln(failures == 0 ? 'ALL PASS' : 'FAILURES: $failures');
+}
+
+/// apkg 里某条短语笔记的字段（已把真实换行换成 `\n` 两个字，便于按 ';;' 切分）。
+class _ApkgFields {
+  final int noteCount;
+  final String guid;
+  final String scene;
+  final String origin;
+  const _ApkgFields(this.noteCount, this.guid, this.scene, this.origin);
+}
+
+/// 读回 apkg：python 解 zip → `collection.anki2` → notes.flds（与 verify_export 同法）。
+Future<_ApkgFields> _readApkgFields(String path, String phrase) async {
+  const script = r'''
+import sys
+import zipfile, sqlite3, tempfile, os
+z = zipfile.ZipFile(sys.argv[1])
+tmp = tempfile.mktemp(suffix=".anki2")
+open(tmp, "wb").write(z.read("collection.anki2"))
+con = sqlite3.connect(tmp)
+rows = con.execute("SELECT guid, flds FROM notes").fetchall()
+con.close(); os.remove(tmp)
+guid = scene = origin = ""
+for (_guid, flds) in rows:
+    parts = flds.split("\x1f")
+    if parts and parts[0] == sys.argv[2]:
+        guid = _guid
+        origin = parts[3] if len(parts) > 3 else ""
+        scene = parts[4] if len(parts) > 4 else ""
+        break
+print(";;".join([str(len(rows)), guid, scene.replace("\n", "\\n"), origin.replace("\n", "\\n")]))
+''';
+  final tmpScript = File(p.join(Directory.systemTemp.path, 'lupa_phrase_apkg_check.py'))
+    ..writeAsStringSync(script);
+  final result =
+      await Process.run('python', ['-X', 'utf8', tmpScript.path, path, phrase],
+          stdoutEncoding: utf8);
+  await tmpScript.delete();
+  final parts = result.stdout.toString().trim().split(';;');
+  if (parts.length < 4) {
+    return _ApkgFields(0, '', '解析失败: ${result.stdout}${result.stderr}', '');
+  }
+  return _ApkgFields(
+      int.tryParse(parts[0]) ?? 0,
+      parts[1],
+      parts[2].replaceAll('\\n', '\n'),
+      parts[3].replaceAll('\\n', '\n'));
 }

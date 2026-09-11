@@ -8,6 +8,7 @@ import 'package:ganki/ganki.dart';
 import 'package:path/path.dart' as p;
 
 import '../phrase/repo.dart' show PhraseEntry, listPhrases;
+import '../phrase/scene_text.dart' show splitScenes;
 
 // 固定 id（与单词卡 model/deck 不同，保证两类导出在 Anki 中互不干扰）
 const int _modelId = 1607392320; // Lupa 短语卡模型
@@ -31,6 +32,8 @@ const String _css = '''
 .ex-item { margin-top: 8px; }
 .ex-en { font-size: 16px; }
 .ex-zh { color: #777; font-size: 14px; }
+.scene-list { margin: 4px 0 0; padding-left: 20px; text-align: left; }
+.scene-list li { color: #555; font-size: 15px; margin-top: 2px; }
 ''';
 
 final Model _phraseModel = Model(
@@ -85,14 +88,41 @@ String fmtExamples(PhraseEntry e) {
     final en = ex.en.trim();
     if (en.isEmpty) continue;
     final zh = ex.zh.trim();
-    parts.add('<div class="ex-item"><div class="ex-en">$en</div>'
-        '${zh.isEmpty ? '' : '<div class="ex-zh">$zh</div>'}</div>');
+    parts.add('<div class="ex-item"><div class="ex-en">${escapeHtml(en)}</div>'
+        '${zh.isEmpty ? '' : '<div class="ex-zh">${escapeHtml(zh)}</div>'}</div>');
   }
   return parts.join('');
 }
 
-String _block(String label, String value) =>
-    value.trim().isEmpty ? '' : '<div><span class="label">$label</span> ${value.trim()}</div>';
+/// HTML 转义（元素文本内容）。
+///
+/// 字段里可能出现 `<`、`&`（数学符号、`<something>` 占位写法），不转义会
+/// 直接破块卡片结构；只转义不拼裸标签。
+String escapeHtml(String raw) =>
+    const HtmlEscape(HtmlEscapeMode.element).convert(raw);
+
+/// 多行纯文本 -> 转义后把换行换成 `<br>`。
+///
+/// Anki 把字段当 HTML 渲染，裸换行会被当成空白折叠成一格，必须显式换行。
+String _multiline(String value) {
+  final text = value.trim();
+  if (text.isEmpty) return '';
+  final normalized = text.replaceAll('\r\n', '\n').replaceAll('\r', '\n');
+  return escapeHtml(normalized).replaceAll('\n', '<br>');
+}
+
+String _block(String label, String value) {
+  final body = _multiline(value);
+  return body.isEmpty ? '' : '<div><span class="label">$label</span> $body</div>';
+}
+
+/// 多条使用场景 -> 无序列表（每条一个列表项，顺序同录入）。
+String _sceneList(List<String> scenes) {
+  if (scenes.isEmpty) return '';
+  final items = scenes.map((s) => '<li>${escapeHtml(s)}</li>').join();
+  return '<div><span class="label">场景</span>'
+      '<ul class="scene-list">$items</ul></div>';
+}
 
 /// 导出短语集为 Anki .apkg（Legacy 2 格式，ganki）。
 Future<PhraseExportReport> exportPhraseApkg(
@@ -110,12 +140,12 @@ Future<PhraseExportReport> exportPhraseApkg(
     deck.addNote(Note(
       model: _phraseModel,
       fields: [
-        e.phrase,
-        e.lit.trim(),
-        e.meaning.trim(),
+        escapeHtml(e.phrase),
+        escapeHtml(e.lit.trim()),
+        escapeHtml(e.meaning.trim()),
         _block('典故', e.origin),
-        _block('场景', e.scene),
-        e.tags.join(' '),
+        _sceneList(splitScenes(e.scene)),
+        escapeHtml(e.tags.join(' ')),
         fmtExamples(e),
       ],
       guid: phraseStableGuid(e.phrase),

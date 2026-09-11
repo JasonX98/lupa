@@ -8,6 +8,7 @@ import 'package:lupa/notebook/repo.dart';
 import 'package:lupa/notebook/scheduler.dart';
 import 'package:lupa/state/app_state.dart';
 import 'package:lupa/theme/lupa_theme.dart';
+import 'package:lupa/widgets/centered_scroll_view.dart';
 import 'package:lupa/widgets/flip_card.dart';
 import 'package:lupa/widgets/word_bits.dart';
 
@@ -228,7 +229,7 @@ class _ReviewPageState extends State<ReviewPage> {
     final card = _current!;
     final progress = '${_index + 1} / ${_queue.length}';
 
-    return Center(
+    return CenteredScrollView(
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 560),
         child: Padding(

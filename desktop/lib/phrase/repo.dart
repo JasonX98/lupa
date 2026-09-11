@@ -11,6 +11,7 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 import '../data/notebook_db.dart';
 import '../notebook/scheduler.dart' show dueTimestamp;
+import 'scene_text.dart' show joinScenes;
 
 /// 卡片状态常量（与单词卡一致：0=new 1=learn 2=review）
 const int phraseNew = 0;
@@ -23,6 +24,12 @@ int _genId() =>
     DateTime.now().millisecondsSinceEpoch ^ _random.nextInt(0x1000000);
 
 int _nowSec() => DateTime.now().millisecondsSinceEpoch ~/ 1000;
+
+/// 场景归一化（数据层兜底，不只依赖 UI）：一条一行、空白条目丢弃。
+///
+/// `phrases.scene` 是单列 TEXT + '\n' 分隔，所有写入都必须过这里，
+/// 否则直接调 repo 的调用方会写出空场景 / 空白分隔。
+String _normalizeScene(String raw) => joinScenes([raw]);
 
 /// 一条例句（输入 / 输出共用）。
 class PhraseExample {
@@ -233,7 +240,7 @@ Future<int> addPhrase(String nbPath, PhraseInput input) async {
           input.lit.trim(),
           input.meaning.trim(),
           input.origin.trim(),
-          input.scene.trim(),
+          _normalizeScene(input.scene),
           input.sceneTag.trim().isEmpty ? '通用' : input.sceneTag.trim(),
           _normalizeTags(input.tags),
           _nowSec(),
@@ -265,7 +272,7 @@ Future<void> updatePhrase(String nbPath, int id, PhraseInput input) async {
           input.lit.trim(),
           input.meaning.trim(),
           input.origin.trim(),
-          input.scene.trim(),
+          _normalizeScene(input.scene),
           input.sceneTag.trim().isEmpty ? '通用' : input.sceneTag.trim(),
           _normalizeTags(input.tags),
           id,

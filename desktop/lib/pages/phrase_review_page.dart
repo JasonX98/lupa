@@ -5,8 +5,10 @@ import 'package:flutter/services.dart';
 
 import 'package:lupa/notebook/scheduler.dart';
 import 'package:lupa/phrase/repo.dart';
+import 'package:lupa/phrase/scene_text.dart';
 import 'package:lupa/state/app_state.dart';
 import 'package:lupa/theme/lupa_theme.dart';
+import 'package:lupa/widgets/centered_scroll_view.dart';
 import 'package:lupa/widgets/flip_card.dart';
 import 'package:lupa/widgets/phrase_bits.dart';
 
@@ -217,7 +219,7 @@ class _PhraseReviewPageState extends State<PhraseReviewPage> {
     final card = _current!;
     final progress = '${_index + 1} / ${_queue.length}';
 
-    return Center(
+    return CenteredScrollView(
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 560),
         child: Padding(
@@ -337,7 +339,24 @@ class _PhraseReviewPageState extends State<PhraseReviewPage> {
         section('字面', card.lit),
         section('释义', card.meaning),
         section('典故', card.origin),
-        section('场景', card.scene),
+        // 场景按条展示，与详情弹窗保持一致（一条一行）
+        if (splitScenes(card.scene).isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('场景',
+                    style: text.labelSmall!.copyWith(color: scheme.primary)),
+                const SizedBox(height: 3),
+                for (final s in splitScenes(card.scene))
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 2),
+                    child: Text(s, style: text.bodyMedium),
+                  ),
+              ],
+            ),
+          ),
         if (card.examples.isNotEmpty)
           Padding(
             padding: const EdgeInsets.only(top: 12),
