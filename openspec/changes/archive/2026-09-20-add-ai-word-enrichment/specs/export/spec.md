@@ -1,10 +1,4 @@
-# Export Specification
-
-## Purpose
-
-让 Lupa 用户的生词本数据可以带出系统：导出为 Anki 可导入的 .apkg 或任何工具可打开的 UTF-8 CSV，实现"数据归用户所有"。
-
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: Anki apkg 导出
 系统 SHALL 支持把生词本导出为 `.apkg` 包，字段含单词、音标、中英释义、词形变化、标签、AI 例句与 AI 搭配。导出 SHALL 使用稳定标识，使同一个词多次导出时被识别为同一张卡而非重复建卡。
@@ -35,4 +29,3 @@
 #### Scenario: 多行内容正确转义
 - **WHEN** 某词的例句与搭配为多行内容
 - **THEN** 单元格内容被正确引用，用电子表格软件打开时每条内容逐行可见
-
