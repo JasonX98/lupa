@@ -9,6 +9,8 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
+import 'package:lupa/version.dart';
+
 import 'data_home.dart';
 
 /// 初始化 sqflite ffi（幂等：只在首次生效，重复调用不再重设全局工厂——
@@ -49,21 +51,73 @@ final Set<String> _migrated = <String>{};
 const String _phraseBeginMarker = '-- >>> PHRASE_TABLES_V2 >>>';
 const String _phraseEndMarker = '-- <<< PHRASE_TABLES_V2 <<<';
 
-/// 从 schema.sql 提取短语三表 DDL 区块（旧库迁移用；schema.sql 为单一事实源）。
-Future<String> loadPhraseSchemaSql() async {
+/// AI 词卡旁表 DDL 区块标记（与 lib/data/schema.sql 中一致，勿改）。
+const String _wordAiBeginMarker = '-- >>> WORD_AI_TABLES_V3 >>>';
+const String _wordAiEndMarker = '-- <<< WORD_AI_TABLES_V3 <<<';
+
+/// 从 schema.sql 提取指定 marker 区块（旧库迁移用；schema.sql 为单一事实源）。
+Future<String> _extractSchemaBlock(String beginMarker, String endMarker) async {
   final sql = await loadSchemaSql();
-  final begin = sql.indexOf(_phraseBeginMarker);
-  final end = sql.indexOf(_phraseEndMarker);
+  final begin = sql.indexOf(beginMarker);
+  final end = sql.indexOf(endMarker);
   if (begin < 0 || end < 0 || end <= begin) {
-    throw StateError('schema.sql 缺少短语表标记 $_phraseBeginMarker / $_phraseEndMarker');
+    throw StateError('schema.sql 缺少标记 $beginMarker / $endMarker');
   }
-  return sql.substring(begin + _phraseBeginMarker.length, end);
+  return sql.substring(begin + beginMarker.length, end);
+}
+
+/// 短语三表 DDL 区块。
+Future<String> loadPhraseSchemaSql() =>
+    _extractSchemaBlock(_phraseBeginMarker, _phraseEndMarker);
+
+/// AI 词卡旁表 DDL 区块（v2 → v3 迁移用）。
+Future<String> loadWordAiSchemaSql() =>
+    _extractSchemaBlock(_wordAiBeginMarker, _wordAiEndMarker);
+
+/// v3 需要给 ai_cache 补的列：(列名, 类型, 默认值字面量)。
+///
+/// SQLite 没有 `ALTER TABLE ... ADD COLUMN IF NOT EXISTS`，所以必须逐列探测；
+/// 否则迁移中途失败后重跑会撞 duplicate column name。
+const List<(String, String, String)> _aiCacheColumnsV3 = [
+  ('model', 'TEXT', "''"),
+  ('prompt_tokens', 'INTEGER', '0'),
+  ('completion_tokens', 'INTEGER', '0'),
+  ('cache_hit_tokens', 'INTEGER', '0'),
+];
+
+/// 给 ai_cache 补齐 v3 列（已存在的列跳过）。幂等。
+Future<void> _upgradeAiCacheColumns(DatabaseExecutor txn) async {
+  final rows = await txn.rawQuery('PRAGMA table_info(ai_cache)');
+  if (rows.isEmpty) {
+    // 真实的 Lupa 库从 v1 起就有 ai_cache（见 schema.sql）。缺表说明这个文件
+    // 不是本应用生成的生词本库 —— 明确报错，不让上层看到「no such table」
+    // 这种不知道从何查起的错误。
+    throw StateError('ai_cache 表缺失：该文件不是 Lupa 生成的生词本库');
+  }
+  final existing = rows.map((r) => (r['name'] as String?) ?? '').toSet();
+  for (final (name, type, def) in _aiCacheColumnsV3) {
+    if (existing.contains(name)) continue;
+    await txn.execute(
+        'ALTER TABLE ai_cache ADD COLUMN $name $type NOT NULL DEFAULT $def');
+  }
+}
+
+/// 记录「最后写入该库的应用版本」。
+///
+/// 值来自 pubspec.yaml（唯一事实源）经 lib/version.dart 转手，因此不会像
+/// 以前那样在 schema.sql 里写死一个很快就过期的字面量。
+Future<void> _stampAppVersion(DatabaseExecutor db) async {
+  await db.rawInsert(
+      'INSERT OR REPLACE INTO meta (key, value) VALUES (?, ?)',
+      ['lupa_version', lupaVersion]);
 }
 
 /// 确保生词本库存在（幂等：已存在则跳过）。给定库文件完整路径。
 ///
-/// 旧库（schema_version < 2）在此补齐短语三表并升级版本号；迁移为增量、幂等
-/// （CREATE TABLE IF NOT EXISTS），不影响单词 notes/cards/revlog。
+/// 旧库（schema_version < 3）在此补齐短语三表与 AI 词卡旁表、补 ai_cache 的
+/// v3 列，并抬版本号。整个迁移包在事务里：SQLite 没有 ADD COLUMN IF NOT EXISTS，
+/// 若中途失败而版本号未抬，重跑会撞 duplicate column name —— 事务保证
+/// 「要么全成、要么全不成」。不影响单词 notes/cards/revlog。
 Future<String> ensureNotebookDb(String dbPath) async {
   initDatabaseFactory();
   final file = File(p.absolute(dbPath));
@@ -76,6 +130,7 @@ Future<String> ensureNotebookDb(String dbPath) async {
         options: OpenDatabaseOptions(singleInstance: false));
     try {
       await db.execute(sql);
+      await _stampAppVersion(db);
     } finally {
       await db.close();
     }
@@ -85,7 +140,6 @@ Future<String> ensureNotebookDb(String dbPath) async {
 
   if (_migrated.contains(abs)) return abs;
 
-  // 旧库：schema_version < 2 则补齐短语三表并升级版本号
   final db = await databaseFactory.openDatabase(abs,
       options: OpenDatabaseOptions(singleInstance: false));
   try {
@@ -94,11 +148,19 @@ Future<String> ensureNotebookDb(String dbPath) async {
     final version = rows.isEmpty
         ? 0
         : int.tryParse((rows.first['value'] as String?) ?? '') ?? 0;
-    if (version < 2) {
-      await db.execute(await loadPhraseSchemaSql());
-      await db.rawInsert("INSERT OR REPLACE INTO meta (key, value) "
-          "VALUES ('schema_version', '2')");
+    if (version < 3) {
+      // 区块先读到事务外：loadSchemaSql 是异步 IO，不应跨 await 持有事务。
+      final phraseSql = version < 2 ? await loadPhraseSchemaSql() : null;
+      final wordAiSql = await loadWordAiSchemaSql();
+      await db.transaction((txn) async {
+        if (phraseSql != null) await txn.execute(phraseSql);
+        await txn.execute(wordAiSql);
+        await _upgradeAiCacheColumns(txn);
+        await txn.rawInsert("INSERT OR REPLACE INTO meta (key, value) "
+            "VALUES ('schema_version', '3')");
+      });
     }
+    await _stampAppVersion(db);
   } finally {
     await db.close();
   }
@@ -168,6 +230,66 @@ Future<int> clearMediaCache(String nbPath) async {
     final a = await con.rawDelete('DELETE FROM audio_cache');
     final p = await con.rawDelete('DELETE FROM phonetic_cache');
     return a + p;
+  } finally {
+    await con.close();
+  }
+}
+
+/// AI 缓存统计（settings AI 组展示用）。
+class AiCacheStats {
+  final int count;
+  final int hits;
+  final int promptTokens;
+  final int completionTokens;
+  final int invalidCount;
+  const AiCacheStats({
+    required this.count,
+    required this.hits,
+    required this.promptTokens,
+    required this.completionTokens,
+    required this.invalidCount,
+  });
+  int get totalTokens => promptTokens + completionTokens;
+}
+
+/// 统计 ai_cache：条数 / 命中次数 / 累计 token / 不合格条目数。
+///
+/// 「不合格」= payload 信封里 `"valid":false` 的条目（校验未通过的模型输出）。
+/// 用 LIKE 粗筛而非解析 JSON：这张表只有百行量级，精确率由 payload 的写法保证
+/// —— 写入端必须用 `json.encode`（紧凑、无空格），否则 `"valid":false` 匹配不到。
+Future<AiCacheStats> aiCacheStats(String nbPath) async {
+  await ensureNotebookDb(nbPath);
+  final con = await _open(nbPath);
+  try {
+    final r = (await con.rawQuery(
+            'SELECT COUNT(*) c, COALESCE(SUM(hit_count), 0) h, '
+            'COALESCE(SUM(prompt_tokens), 0) pt, '
+            'COALESCE(SUM(completion_tokens), 0) ct, '
+            'COALESCE(SUM(CASE WHEN payload LIKE ? THEN 1 ELSE 0 END), 0) bad '
+            'FROM ai_cache',
+            ['%"valid":false%']))
+        .first;
+    return AiCacheStats(
+      count: r['c'] as int,
+      hits: r['h'] as int,
+      promptTokens: r['pt'] as int,
+      completionTokens: r['ct'] as int,
+      invalidCount: r['bad'] as int,
+    );
+  } finally {
+    await con.close();
+  }
+}
+
+/// 清空 ai_cache。返回删除条数。
+///
+/// 只清缓存，**不动 word_ai_groups / word_ai_examples** —— 那是用户数据，
+/// 随笔记一起备份与迁移（见 specs/settings 的「清理不影响已保存内容」）。
+Future<int> clearAiCache(String nbPath) async {
+  await ensureNotebookDb(nbPath);
+  final con = await _open(nbPath);
+  try {
+    return await con.rawDelete('DELETE FROM ai_cache');
   } finally {
     await con.close();
   }

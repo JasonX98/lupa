@@ -17,7 +17,15 @@ const Map<String, Object?> defaultConfig = {
               '&q={word}&dicts=%7B%22count%22%3A99%2C%22dicts%22%3A%5B%5B%22ec%22%5D%5D%7D',
       // {accent} = 1(英音) / 2(美音)
       'tts_url': 'https://dict.youdao.com/dictvoice?audio={word}&type={accent}',
-    }
+    },
+    // AI 服务商：与 youdao 同构（连谁归 providers），复用 providerConfig()。
+    // 行为开关（要不要用）归 settings.ai，见下。
+    'deepseek': {
+      'base_url': 'https://api.deepseek.com',
+      'model': 'deepseek-flash',
+      'api_key': '',
+      'timeout_sec': 30,
+    },
   },
   // 设置模块：写入 config.json 的嵌套 settings 块。见 specs/settings/spec.md。
   'settings': {
@@ -27,8 +35,21 @@ const Map<String, Object?> defaultConfig = {
     'defaultAccent': 'us', // us | uk
     'reviewAutoRead': false,
     'dataDir': null, // 显式切换数据目录后写绝对路径；null = 用 LUPA_HOME/exe 默认
+    // AI 行为开关。enabled 默认 false：首次运行没有密钥，默认开会让用户
+    // 第一次查词就撞错误弹窗。正确引导顺序是「填密钥 -> 提示可启用」。
+    // 字段名用 providerName 而非 provider，避免与顶层 default_provider
+    // （音标/TTS 的服务商）混淆 —— 两者是完全不同的维度。
+    'ai': {
+      'enabled': false,
+      'providerName': 'deepseek',
+      'autoEnrich': true,
+    },
   },
 };
+
+/// AI 密钥的环境变量名。**只支持这一个名字** —— 多一个来源就多一层优先级
+/// 要解释，而收益只是「少设一个变量」。
+const String aiKeyEnvVar = 'LUPA_AI_KEY';
 
 const String configFile = 'config.json';
 
@@ -74,6 +95,24 @@ Map<String, Object?> providerConfig(Map<String, Object?> config,
     throw ArgumentError('配置中没有该 provider: $name');
   }
   return providers[name]! as Map<String, Object?>;
+}
+
+/// 解析 AI 密钥：`LUPA_AI_KEY` 环境变量优先于 `config.json`。
+///
+/// 纯函数形式便于单测（flutter test 无法设进程环境变量）。
+/// 空串视为未配置 —— 否则「填了密钥又删掉」会退化成用空串去请求。
+String resolveAiKey(String? envValue, Map<String, Object?> config, [String provider = 'deepseek']) {
+  final env = envValue?.trim();
+  if (env != null && env.isNotEmpty) return env;
+  final providers = config['providers'];
+  if (providers is Map) {
+    final pcfg = providers[provider];
+    if (pcfg is Map) {
+      final k = pcfg['api_key'];
+      if (k is String) return k.trim();
+    }
+  }
+  return '';
 }
 
 Map<String, Object?> _deepCopy(Map<String, Object?> src) => {

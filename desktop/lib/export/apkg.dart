@@ -7,7 +7,7 @@ import 'package:crypto/crypto.dart';
 import 'package:ganki/ganki.dart';
 import 'package:path/path.dart' as p;
 
-import '../notebook/repo.dart' show listWords;
+import '../notebook/repo.dart' show NotebookEntry, listWords;
 
 // 固定 id（随机但持久，保证多次导出在 Anki 中合并而非重复建 deck）
 const int _modelId = 1607392319; // Lupa 单词卡模型
@@ -27,6 +27,12 @@ const String _css = '''
 .meaning { margin: 6px 0; line-height: 1.55; }
 .en { color: #555; font-style: italic; font-size: 18px; }
 .exchange { color: #8a4fbd; font-size: 17px; margin-top: 12px; }
+.ai { margin-top: 14px; }
+.ai-group { margin-top: 10px; }
+.ai-label { font-weight: bold; color: #1a5fb4; }
+.ai-gloss { color: #444; }
+.ai-ex { margin: 4px 0 0 8px; }
+.ai-ex .zh { color: #777; font-size: 17px; }
 ''';
 
 final Model _lupaModel = Model(
@@ -40,6 +46,9 @@ final Model _lupaModel = Model(
     {'name': 'Definition'},
     {'name': 'Exchange'},
     {'name': 'Tags'},
+    // v3 新增：AI 例句与搭配（见 specs/export 的「Anki apkg 导出」）
+    {'name': 'Examples'},
+    {'name': 'Collocations'},
   ],
   templates: [
     {
@@ -51,6 +60,7 @@ final Model _lupaModel = Model(
           '<div class="meaning">{{Translation}}</div>'
           '<div class="en">{{Definition}}</div>'
           '<div class="exchange">{{Exchange}}</div>'
+          '<div class="ai">{{Examples}}{{Collocations}}</div>'
           '</div>',
     },
   ],
@@ -91,6 +101,71 @@ String fmtExchange(String exchange) {
 
 String _fmtPhonetic(String phonetic) => phonetic.trim().isEmpty ? '' : '/$phonetic/';
 
+/// HTML 转义（AI 例句里可能出现 `<`、`&` 等字符）。
+String _esc(String s) => s
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;');
+
+/// AI 例句渲染为 HTML 列表：按词性分组，每组一个 `<ul>`。
+///
+/// 降级补齐（label 为空的组）用「通用例句」标题 —— 与界面一致。
+String fmtAiExamples(NotebookEntry e) {
+  if (!e.hasAi) return '';
+  final b = StringBuffer();
+  final senses = e.aiSenses;
+  final onlyPlain = senses.isNotEmpty && senses.every((g) => g.label.trim().isEmpty);
+  if (senses.isNotEmpty) {
+    b.write('<div class="ai-group">');
+    if (onlyPlain) b.write('<div class="ai-label">通用例句</div>');
+    for (final g in senses) {
+      if (!onlyPlain) {
+        b.write('<div class="ai-label">${_esc(g.label)}</div>');
+      }
+      if (g.gloss.trim().isNotEmpty) {
+        b.write('<div class="ai-gloss">${_esc(g.gloss)}</div>');
+      }
+      b.write('<ul>');
+      for (final x in g.examples) {
+        b.write('<li><span class="en">${_esc(x.en)}</span>');
+        if (x.zh.trim().isNotEmpty) {
+          b.write('<div class="zh">${_esc(x.zh)}</div>');
+        }
+        b.write('</li>');
+      }
+      b.write('</ul>');
+    }
+    b.write('</div>');
+  }
+  return b.toString();
+}
+
+/// AI 搭配渲染为 HTML：搭配 + 释义 + 例句列表。
+String fmtAiCollocations(NotebookEntry e) {
+  final cols = e.aiCollocations;
+  if (cols.isEmpty) return '';
+  final b = StringBuffer('<div class="ai-group">');
+  for (final g in cols) {
+    b.write('<div class="ai-label">${_esc(g.label)}</div>');
+    if (g.gloss.trim().isNotEmpty) {
+      b.write('<div class="ai-gloss">${_esc(g.gloss)}</div>');
+    }
+    if (g.examples.isNotEmpty) {
+      b.write('<ul>');
+      for (final x in g.examples) {
+        b.write('<li><span class="en">${_esc(x.en)}</span>');
+        if (x.zh.trim().isNotEmpty) {
+          b.write('<div class="zh">${_esc(x.zh)}</div>');
+        }
+        b.write('</li>');
+      }
+      b.write('</ul>');
+    }
+  }
+  b.write('</div>');
+  return b.toString();
+}
+
 /// 导出生词本为 Anki .apkg（Legacy 2 格式，ganki）。
 Future<ExportReport> exportApkg(
   String nbPath,
@@ -113,6 +188,8 @@ Future<ExportReport> exportApkg(
         (e.definition).trim().replaceAll('\n', '<br>'),
         fmtExchange(e.exchange),
         e.tags,
+        fmtAiExamples(e),
+        fmtAiCollocations(e),
       ],
       guid: stableGuid(e.word),
       tags: e.tags.isEmpty ? [] : e.tags.split(' '),

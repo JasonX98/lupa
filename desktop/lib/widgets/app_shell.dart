@@ -37,6 +37,33 @@ class _AppShellState extends State<AppShell> {
   // 0=查词 1=生词本 2=复习 3=短语集 4=短语复习 5=导出 6=设置
   int _page = 0;
 
+  /// 已处理过的「请求打开设置」次数，用于只响应新增的请求。
+  int _handledSettingsRequests = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    widget.state.addListener(_onStateChanged);
+  }
+
+  /// AI 鉴权失败等场景由 AppState 发「请求打开设置」，这里完成实际切换。
+  ///
+  /// 用计数而非回调：AppState 不依赖 UI 层，不知道路由也不该知道。
+  void _onStateChanged() {
+    final n = widget.state.openSettingsRequests;
+    if (n > _handledSettingsRequests) {
+      _handledSettingsRequests = n;
+      if (mounted) _go(6);
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.state.removeListener(_onStateChanged);
+    _shellFocus.dispose();
+    super.dispose();
+  }
+
   // 外壳焦点：切页时把焦点收回这里，保证 CallbackShortcuts 的继承树上始终有人持焦
   //（它只在「其后代持有焦点」时才拦按键）。
   final _shellFocus = FocusNode(debugLabel: 'AppShell');
@@ -80,12 +107,6 @@ class _AppShellState extends State<AppShell> {
     final label = a.trigger.keyLabel;
     final key = label.length == 1 ? label.toUpperCase() : label;
     return '${a.control ? 'Ctrl+' : ''}$key';
-  }
-
-  @override
-  void dispose() {
-    _shellFocus.dispose();
-    super.dispose();
   }
 
   void _go(int i) {

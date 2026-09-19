@@ -6,6 +6,7 @@ import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
 
+import 'package:lupa/data/config.dart';
 import 'package:lupa/data/data_home.dart';
 import 'package:lupa/data/notebook_db.dart';
 import 'package:lupa/state/app_state.dart';
@@ -25,23 +26,64 @@ class SettingsPage extends StatefulWidget {
 class _SettingsPageState extends State<SettingsPage> {
   late final TextEditingController _ttsUrl;
   late final TextEditingController _phoneticUrl;
+  // ---- AI 组控件 ----
+  late final TextEditingController _aiBaseUrl;
+  late final TextEditingController _aiModel;
+  late final TextEditingController _aiKey;
+  bool _aiKeyVisible = false; // 密钥默认掩码（spec 要求）
+  AiCacheStats? _aiStats;
   MediaCacheStats? _cacheStats;
   bool _busy = false; // 数据目录切换 / 备份 / 清理进行中
 
   @override
   void initState() {
     super.initState();
-    _ttsUrl = TextEditingController(text: widget.state.providerUrl('tts_url'));
+    final st = widget.state;
+    _ttsUrl = TextEditingController(text: st.providerUrl('tts_url'));
     _phoneticUrl =
-        TextEditingController(text: widget.state.providerUrl('phonetic_url'));
+        TextEditingController(text: st.providerUrl('phonetic_url'));
+    _aiBaseUrl =
+        TextEditingController(text: st.aiProviderConfig()['base_url'] as String? ?? '');
+    _aiModel =
+        TextEditingController(text: st.aiProviderConfig()['model'] as String? ?? '');
+    _aiKey = TextEditingController(
+        text: (st.aiProviderConfig()['api_key'] as String?) ?? '');
     _loadCacheStats();
+    _loadAiStats();
   }
 
   @override
   void dispose() {
     _ttsUrl.dispose();
     _phoneticUrl.dispose();
+    _aiBaseUrl.dispose();
+    _aiModel.dispose();
+    _aiKey.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadAiStats() async {
+    final s = await widget.state.aiCacheStatsNow();
+    if (mounted) setState(() => _aiStats = s);
+  }
+
+  Future<void> _clearAiCache() async {
+    final removed = await widget.state.clearAiCacheNow();
+    await _loadAiStats();
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('已清理 $removed 条 AI 缓存（已保存的例句不受影响）')));
+    }
+  }
+
+  void _saveAiConnection() {
+    widget.state.setAiConnection(
+      baseUrl: _aiBaseUrl.text,
+      model: _aiModel.text,
+      apiKey: _aiKey.text,
+    );
+    ScaffoldMessenger.of(context)
+        .showSnackBar(const SnackBar(content: Text('已保存')));
   }
 
   Future<void> _loadCacheStats() async {
@@ -172,6 +214,8 @@ class _SettingsPageState extends State<SettingsPage> {
         _card(_pronunciationGroup(context)),
         _sectionTitle('复习'),
         _card(_reviewGroup(context)),
+        _sectionTitle('AI'),
+        _card(_aiGroup(context)),
         _sectionTitle('数据'),
         _card(_dataGroup(context)),
         const SizedBox(height: 16),
@@ -214,7 +258,12 @@ class _SettingsPageState extends State<SettingsPage> {
         borderRadius: BorderRadius.circular(10),
         border: Border.all(color: Theme.of(context).dividerColor),
       ),
-      child: Column(children: children),
+      // 左对齐：Column 默认 crossAxisAlignment.center，会把「比自己窄的子项」
+      // 居中（实测 AI 组的输入框因此跑到中间）。所有设置项统一靠左。
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: children,
+      ),
     );
   }
 
@@ -398,6 +447,127 @@ class _SettingsPageState extends State<SettingsPage> {
         ),
       ),
     ];
+  }
+
+  // ---- AI ----
+  //
+  // 存储位置是内部事：连接信息在 providers.<name>（连谁），行为开关在
+  // settings.ai（要不要用），但 UI 上同属一组。
+  List<Widget> _aiGroup(BuildContext context) {
+    final state = widget.state;
+    final text = Theme.of(context).textTheme;
+    final keyFromEnv = state.aiKeyFromEnv;
+    final stats = _aiStats;
+    return [
+      _row(
+        label: '启用 AI',
+        sub: '关闭时应用行为与未引入 AI 时完全一致',
+        control: LupaSwitch(
+          value: state.aiEnabled,
+          onChanged: (v) => state.setAiEnabled(v),
+        ),
+      ),
+      _divider(),
+      _row(
+        label: '查词时自动补齐',
+        sub: '关闭后需在词卡上手动点「AI 补齐」',
+        control: LupaSwitch(
+          value: state.aiAutoEnrich,
+          onChanged: (v) => state.setAiAutoEnrich(v),
+        ),
+      ),
+      _divider(),
+      _aiField('服务基地址', 'OpenAI 兼容接口，如 https://api.deepseek.com',
+          _aiBaseUrl),
+      _divider(),
+      _aiField('模型', '如 deepseek-flash', _aiModel),
+      _divider(),
+      _aiField(
+        'API Key',
+        keyFromEnv
+            ? '已由环境变量 $aiKeyEnvVar 提供，此处输入不生效'
+            : '密钥以明文保存在 config.json；也可用环境变量 $aiKeyEnvVar 代替',
+        _aiKey,
+        obscure: !_aiKeyVisible,
+        trailing: IconButton(
+          tooltip: _aiKeyVisible ? '隐藏' : '显示',
+          onPressed: () => setState(() => _aiKeyVisible = !_aiKeyVisible),
+          icon: Icon(
+              _aiKeyVisible ? Icons.visibility_off : Icons.visibility,
+              size: 18),
+        ),
+      ),
+      Padding(
+        padding: const EdgeInsets.only(bottom: 12),
+        child: Row(children: [
+          FilledButton(
+            onPressed: _saveAiConnection,
+            child: const Text('保存 AI 配置'),
+          ),
+          const SizedBox(width: 12),
+          if (state.aiEnabled && state.aiApiKey.isEmpty)
+            Text('已启用但未填密钥，不会发起请求',
+                style: text.bodySmall!
+                    .copyWith(color: Theme.of(context).colorScheme.error)),
+        ]),
+      ),
+      _divider(),
+      _row(
+        label: 'AI 缓存',
+        sub: stats == null
+            ? '读取中…'
+            : '${stats.count} 条 · 命中 ${stats.hits} 次 · '
+                '${stats.totalTokens} token'
+                '${stats.invalidCount > 0 ? ' · 其中 ${stats.invalidCount} 条不合格' : ''}',
+        control: OutlinedButton(
+          onPressed: _busy ? null : _clearAiCache,
+          child: const Text('清理 AI 缓存'),
+        ),
+      ),
+      Padding(
+        padding: const EdgeInsets.only(bottom: 14),
+        child: Text(
+          '清理的是可重新获取的缓存，不会删除已保存生词卡片中的例句与搭配。',
+          style: text.bodySmall,
+        ),
+      ),
+    ];
+  }
+
+  /// AI 组的文本输入行。
+  ///
+  /// 布局与 `_urlRow` 一致：标签/说明在上，输入框在下一行**靠左**，
+  /// 宽度与同组其它行的控件对齐（`_card` 已改为 stretch，故这里的宽度
+  /// 就是内容区宽度）。
+  Widget _aiField(String label, String sub, TextEditingController c,
+      {bool obscure = false, Widget? trailing}) {
+    final text = Theme.of(context).textTheme;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label,
+              style: text.bodyMedium!
+                  .copyWith(color: Theme.of(context).colorScheme.onSurface)),
+          const SizedBox(height: 3),
+          Text(sub, style: text.bodySmall),
+          const SizedBox(height: 8),
+          TextField(
+            controller: c,
+            obscureText: obscure,
+            style: text.bodySmall,
+            decoration: InputDecoration(
+              isDense: true,
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              border: const OutlineInputBorder(),
+              suffixIcon: trailing,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   // ---- 数据 ----

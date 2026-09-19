@@ -1,5 +1,5 @@
 -- ============================================================================
--- Lupa / 璐帕 — 用户生词本 + 短语集 + 媒体缓存 schema (v2)
+-- Lupa / 璐帕 — 用户生词本 + 短语集 + 媒体缓存 + AI 词卡旁表 schema (v3)
 --
 -- 跨语言友好约束 #1：本文件仅使用 SQLite >= 3.38 标准 SQL。
 --   - 不使用 JSON1 扩展、STRICT 表、RETURNING 子句、WITHOUT ROWID、
@@ -9,15 +9,19 @@
 --     并在 README 中说明 Flutter 端兼容情况。
 --
 -- 设计原则：
---   - notes / cards / revlog 三表结构抄自 Anki schema11.sql（行业事实标准），
---     以便导出 .apkg 时字段直接复用。
+--   - notes / cards / revlog 三表参考 Anki 的表结构（flds 用 0x1F 分隔字段等），
+--     便于导出 .apkg 时直接映射字段。Anki 只是实现参考，不是需要保持兼容的契约。
 --   - 复习历史与卡片状态分离（revlog 单独成表），便于调算法与导出。
 --   - media_cache 三表用三段式缓存键 (provider:word:format)，
 --     便于切换音标/TTS 服务商而无需迁移数据（跨语言友好约束 #3）。
---   - 所有主键用 INTEGER 自增，对外 ID 用 TEXT（Anki 风格 hex / uuid）。
+--   - ai_cache 同样用三段式缓存键 (<provider>/<model>:<word>:<feature>)：
+--     模型折进 provider 段，换模型即天然分家（见 design D2）。
+--   - AI 例句与搭配存独立旁表（word_ai_groups / word_ai_examples），
+--     不塞进 notes.flds —— 一个 flds 字段撑不住三级结构（见 design D1）。
+--   - 所有主键用 INTEGER 自增，对外 ID 用 TEXT（十六进制/时间戳风格）。
 -- ============================================================================
 
--- ----- Anki 兼容三表 -----
+-- ----- 核心三表（表结构参考 Anki）-----
 
 CREATE TABLE notes (
     id            INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -114,14 +118,20 @@ CREATE INDEX idx_audio_word ON audio_cache(word);
 
 CREATE TABLE ai_cache (
     id              INTEGER PRIMARY KEY AUTOINCREMENT,
-    cache_key       TEXT    UNIQUE NOT NULL,  -- 三段式: provider:word:feature
+    cache_key       TEXT    UNIQUE NOT NULL,  -- 三段式: <provider>/<model>:<word>:<feature>
     word            TEXT    NOT NULL,
-    provider        TEXT    NOT NULL,
-    feature         TEXT    NOT NULL,
-    prompt_version  INTEGER NOT NULL,
-    payload         TEXT    NOT NULL,
+    provider        TEXT    NOT NULL,         -- 含模型，如 'deepseek/deepseek-flash'
+    feature         TEXT    NOT NULL,         -- 'enrich'(词库命中补齐) | 'define'(未命中整卡)
+    prompt_version  INTEGER NOT NULL,         -- 提示词版本 + 输出结构版本，同生共死
+    payload         TEXT    NOT NULL,         -- 信封 {"card":..,"raw":..,"model":..,"usage":..}
     fetched_at      INTEGER NOT NULL,
-    hit_count       INTEGER NOT NULL DEFAULT 0
+    hit_count       INTEGER NOT NULL DEFAULT 0,
+    -- v3 新增：模型与 token 用量提为真列（model 与 provider 段刻意冗余，
+    -- 为的是设置页能按模型聚合而不必拆 cache_key 字符串）
+    model               TEXT    NOT NULL DEFAULT '',
+    prompt_tokens       INTEGER NOT NULL DEFAULT 0,
+    completion_tokens   INTEGER NOT NULL DEFAULT 0,
+    cache_hit_tokens    INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE INDEX idx_ai_key  ON ai_cache(cache_key);
@@ -133,7 +143,7 @@ CREATE INDEX idx_ai_word ON ai_cache(word);
 --       与 schema.sql 是唯一事实源；标记不要删除或改名。
 CREATE TABLE IF NOT EXISTS phrases (
     id            INTEGER PRIMARY KEY AUTOINCREMENT,
-    p_id          TEXT    UNIQUE NOT NULL,       -- 对外 ID（Anki 风格 hex/uuid）
+    p_id          TEXT    UNIQUE NOT NULL,       -- 对外 ID（十六进制/时间戳风格）
     phrase        TEXT    NOT NULL,              -- 短语原文（去重键）
     lit           TEXT    NOT NULL DEFAULT '',   -- 字面直译
     meaning       TEXT    NOT NULL,              -- 核心释义（必填）
@@ -177,6 +187,36 @@ CREATE TABLE IF NOT EXISTS phrase_review_log (
 CREATE INDEX IF NOT EXISTS idx_phrase_review_log_pid ON phrase_review_log(phrase_id);
 -- <<< PHRASE_TABLES_V2 <<<
 
+-- ----- AI 词卡旁表（单词的 AI 例句与搭配）-----
+-- >>> WORD_AI_TABLES_V3 >>>
+-- 说明：本区块被 lib/data/notebook_db.dart 的旧库迁移按标记提取执行，
+--       与 schema.sql 是唯一事实源；标记不要删除或改名。
+-- 形状参照 phrases + phrase_examples（主表 + 明细表），但用 kind 区分
+-- 「词性组」与「搭配组」，避免为同一形状开两张主表。
+CREATE TABLE IF NOT EXISTS word_ai_groups (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    note_id    INTEGER NOT NULL,
+    kind       TEXT    NOT NULL,              -- 'sense'(词性组) | 'collocation'(搭配组)
+    ordinal    INTEGER NOT NULL DEFAULT 0,    -- 组间顺序
+    label      TEXT    NOT NULL DEFAULT '',   -- sense: 'n.' / 'vt.'  collocation: 'record a video'
+    gloss      TEXT    NOT NULL DEFAULT '',   -- sense: '记录；唱片'   collocation: '录制视频'
+    FOREIGN KEY (note_id) REFERENCES notes(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_waig_note ON word_ai_groups(note_id);
+
+CREATE TABLE IF NOT EXISTS word_ai_examples (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    group_id   INTEGER NOT NULL,
+    ordinal    INTEGER NOT NULL DEFAULT 0,
+    en         TEXT    NOT NULL,
+    zh         TEXT    NOT NULL DEFAULT '',
+    FOREIGN KEY (group_id) REFERENCES word_ai_groups(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_waie_group ON word_ai_examples(group_id);
+-- <<< WORD_AI_TABLES_V3 <<<
+
 -- ----- meta 表 -----
 
 CREATE TABLE meta (
@@ -184,6 +224,8 @@ CREATE TABLE meta (
     value  TEXT NOT NULL
 );
 
-INSERT INTO meta (key, value) VALUES ('schema_version', '2');
-INSERT INTO meta (key, value) VALUES ('lupa_version', '0.2.1');
+-- lupa_version 不在此写死：它是「最后写入该库的应用版本」，由
+-- notebook_db.dart 的 ensureNotebookDb 在运行时从 lib/version.dart 的
+-- lupaVersion 写入，从而不会与 pubspec.yaml 这个唯一事实源漂移。
+INSERT INTO meta (key, value) VALUES ('schema_version', '3');
 INSERT INTO meta (key, value) VALUES ('created_at', strftime('%s', 'now'));

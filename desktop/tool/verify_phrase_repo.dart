@@ -40,7 +40,9 @@ Future<void> main() async {
   await con0.close();
   check('1.1 三张短语表建好',
       tables.containsAll(['phrases', 'phrase_examples', 'phrase_review_log']));
-  check('1.1 schema_version=2', meta0['schema_version'] == '2', detail: meta0);
+  check('1.1 AI 词卡旁表建好',
+      tables.containsAll(['word_ai_groups', 'word_ai_examples']));
+  check('1.1 schema_version=3', meta0['schema_version'] == '3', detail: meta0);
 
   // ================= 2.1 addPhrase =================
   final id1 = await addPhrase(
@@ -401,6 +403,9 @@ Future<void> main() async {
     CREATE TABLE cards (id INTEGER PRIMARY KEY AUTOINCREMENT, c_id TEXT UNIQUE NOT NULL, n_id INTEGER NOT NULL, did INTEGER NOT NULL DEFAULT 1, ord INTEGER NOT NULL, mod INTEGER NOT NULL, usn INTEGER NOT NULL DEFAULT 0, type INTEGER NOT NULL DEFAULT 0, queue INTEGER NOT NULL DEFAULT 0, due INTEGER NOT NULL, ivl INTEGER NOT NULL DEFAULT 0, factor INTEGER NOT NULL DEFAULT 0, reps INTEGER NOT NULL DEFAULT 0, lapses INTEGER NOT NULL DEFAULT 0, left INTEGER NOT NULL DEFAULT 0, odue INTEGER NOT NULL DEFAULT 0, odid INTEGER NOT NULL DEFAULT 0, flags INTEGER NOT NULL DEFAULT 0, data TEXT NOT NULL DEFAULT '');
     CREATE TABLE revlog (id INTEGER PRIMARY KEY AUTOINCREMENT, r_id INTEGER NOT NULL, cid INTEGER NOT NULL, usn INTEGER NOT NULL DEFAULT 0, ease INTEGER NOT NULL, ivl INTEGER NOT NULL, last_ivl INTEGER NOT NULL, factor INTEGER NOT NULL, time INTEGER NOT NULL, type INTEGER NOT NULL);
     CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+    CREATE TABLE ai_cache (id INTEGER PRIMARY KEY AUTOINCREMENT, cache_key TEXT UNIQUE NOT NULL, word TEXT NOT NULL, provider TEXT NOT NULL, feature TEXT NOT NULL, prompt_version INTEGER NOT NULL, payload TEXT NOT NULL, fetched_at INTEGER NOT NULL, hit_count INTEGER NOT NULL DEFAULT 0);
+    CREATE TABLE phonetic_cache (id INTEGER PRIMARY KEY AUTOINCREMENT, cache_key TEXT UNIQUE NOT NULL, word TEXT NOT NULL, provider TEXT NOT NULL, fmt TEXT NOT NULL, url TEXT NOT NULL, phonetic TEXT NOT NULL, fetched_at INTEGER NOT NULL, hit_count INTEGER NOT NULL DEFAULT 0);
+    CREATE TABLE audio_cache (id INTEGER PRIMARY KEY AUTOINCREMENT, cache_key TEXT UNIQUE NOT NULL, word TEXT NOT NULL, provider TEXT NOT NULL, fmt TEXT NOT NULL, url TEXT NOT NULL, blob BLOB NOT NULL, size_bytes INTEGER NOT NULL, fetched_at INTEGER NOT NULL, hit_count INTEGER NOT NULL DEFAULT 0);
     INSERT INTO meta (key, value) VALUES ('schema_version', '1');
     INSERT INTO notes (n_id, m_id, mod, flds, sfld) VALUES ('1', 1, 0, 'abandon', 'abandon');
   ''');
@@ -419,7 +424,8 @@ Future<void> main() async {
   final wordNotes = (await dbMig.rawQuery('SELECT COUNT(*) c FROM notes')).first['c'];
   await dbMig.close();
   check('1.2 旧库补齐三表', migTables.containsAll(['phrases', 'phrase_examples', 'phrase_review_log']));
-  check('1.2 旧库版本升到 2', migMeta['schema_version'] == '2', detail: migMeta);
+  check('1.2 旧库补齐 AI 词卡旁表', migTables.containsAll(['word_ai_groups', 'word_ai_examples']));
+  check('1.2 旧库版本升到 3', migMeta['schema_version'] == '3', detail: migMeta);
   check('1.2 单词 notes 未受影响', wordNotes == 1, detail: wordNotes);
 
   await tmp.delete(recursive: true);

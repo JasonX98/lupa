@@ -3,18 +3,20 @@
 // schema 见 lib/data/schema.sql（notes / cards / revlog / 3 缓存表 / meta）。
 // 字段语义、id 生成、去重与错误行为是 Anki 兼容的唯一实现。
 import 'package:crypto/crypto.dart';
+import 'dart:convert';
 import 'dart:math';
 
 import 'package:path/path.dart' as p;
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
+import '../ai/card.dart' show AiCard;
 import '../data/notebook_db.dart';
 import 'scheduler.dart' show dueTimestamp;
 
 // 调度 / 牌组常量
 const int modelId = 1; // 默认笔记模型 id（v1 只有一种模型）
 const int deckId = 1; // 默认牌组 id
-const String fieldSep = '\x1f'; // Anki 字段分隔符
+const String fieldSep = '\x1f'; // 字段分隔符（沿用 Anki 的 0x1F 约定）
 
 // 卡片状态常量（抄 Anki CardType/CardQueue）
 const int cardNew = 0;
@@ -41,6 +43,13 @@ class NotebookEntry {
   final int lapses;
   final int addedAt;
 
+  /// AI 例句与搭配（按词性分组的 sense + collocation 组）。
+  /// 老笔记没有这些内容，读出为空列表。
+  final List<WordAiGroup> aiGroups;
+
+  /// 卡片核心内容的来源（词库 or AI 生成）。
+  final NoteSource source;
+
   const NotebookEntry({
     required this.noteId,
     required this.cardId,
@@ -57,7 +66,96 @@ class NotebookEntry {
     required this.reps,
     required this.lapses,
     required this.addedAt,
+    this.aiGroups = const [],
+    this.source = NoteSource.dict,
   });
+
+  /// 按词性分组的例句（kind = sense）。
+  List<WordAiGroup> get aiSenses =>
+      aiGroups.where((g) => g.isSense).toList();
+
+  /// 搭配及其例句（kind = collocation）。
+  List<WordAiGroup> get aiCollocations =>
+      aiGroups.where((g) => g.isCollocation).toList();
+
+  bool get hasAi => aiGroups.isNotEmpty;
+}
+
+/// 卡片核心内容的来源。
+///
+/// 词库词的核心内容来自 dict.sqlite（权威、已校验）；AI 词是模型生成的整卡
+/// （dict 里永远不会有它，flds 是唯一副本）。区分它们影响用户对内容可信度的判断。
+enum NoteSource { dict, ai }
+
+/// 一条 AI 例句。
+class WordAiExample {
+  final String en;
+  final String zh;
+  const WordAiExample({required this.en, required this.zh});
+}
+
+/// 一组 AI 内容：词性组（`n.`）或搭配组（`record a video`）。
+class WordAiGroup {
+  final int id;
+  final String kind; // 'sense' | 'collocation'
+  final String label;
+  final String gloss;
+  final List<WordAiExample> examples;
+
+  const WordAiGroup({
+    required this.id,
+    required this.kind,
+    required this.label,
+    required this.gloss,
+    required this.examples,
+  });
+
+  bool get isSense => kind == kindSense;
+  bool get isCollocation => kind == kindCollocation;
+  static const String kindSense = 'sense';
+  static const String kindCollocation = 'collocation';
+}
+
+/// provenance 信封（存在 `notes.data`，该列在本次变更前从未被写过）。
+///
+/// 用 JSON 而不是新列：这个信息未来会长（provider / model / prompt_version /
+/// generated_at），JSON 免去反复加列，且让 notes 表结构保持不变（见 design D3-3）。
+class NoteProvenance {
+  final NoteSource source;
+  final String provider;
+  final int promptVersion;
+  final int generatedAt;
+
+  const NoteProvenance({
+    this.source = NoteSource.dict,
+    this.provider = '',
+    this.promptVersion = 0,
+    this.generatedAt = 0,
+  });
+
+  String encode() => json.encode({
+        'source': source == NoteSource.ai ? 'ai' : 'dict',
+        if (provider.isNotEmpty) 'provider': provider,
+        if (promptVersion > 0) 'prompt_version': promptVersion,
+        if (generatedAt > 0) 'generated_at': generatedAt,
+      });
+
+  /// 解析 provenance。空串 / 非 JSON / 缺 source 均视为词库来源（老笔记）。
+  static NoteProvenance decode(String? raw) {
+    if (raw == null || raw.trim().isEmpty) return const NoteProvenance();
+    try {
+      final m = json.decode(raw);
+      if (m is! Map) return const NoteProvenance();
+      return NoteProvenance(
+        source: m['source'] == 'ai' ? NoteSource.ai : NoteSource.dict,
+        provider: (m['provider'] as String?) ?? '',
+        promptVersion: (m['prompt_version'] as num?)?.toInt() ?? 0,
+        generatedAt: (m['generated_at'] as num?)?.toInt() ?? 0,
+      );
+    } catch (_) {
+      return const NoteProvenance();
+    }
+  }
 }
 
 /// 词不在词库中。
@@ -125,45 +223,181 @@ Future<int> addWord(
     entry['definition'] as String? ?? '',
     entry['exchange'] as String? ?? '',
   ].join(fieldSep);
-  final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
   final w = word.trim();
 
   final con = await _openNb(nbPath);
   try {
-    final dup = await con.rawQuery(
-      'SELECT id FROM notes WHERE sfld = ? COLLATE NOCASE',
-      [w],
-    );
-    if (dup.isNotEmpty) throw DuplicateWordError(word);
+    return await _insertNote(con, flds: flds, sfld: w, tags: tags);
+  } finally {
+    await con.close();
+  }
+}
 
-    final noteId = await con.rawInsert(
-      'INSERT INTO notes (n_id, m_id, mod, usn, tags, flds, sfld, csum, flags, data) '
-      'VALUES (?, ?, ?, 0, ?, ?, ?, ?, 0, \'\')',
-      [
-        _genAnkiId().toString(),
-        modelId,
-        now,
-        tags.trim(),
-        flds,
-        w,
-        _csum(flds),
-      ],
-    );
+/// 加入一个由 AI 生成整卡的词（词库未收录）。成功返回 note 内部 id。
+///
+/// 与 [addWord] 的区别只有两个：不做词库校验（词本来就不在词库），
+/// 并且把 AI 例句/搭配写入旁表、把来源记进 `notes.data`。
+/// 内部共用 [_insertNote]，所以「重复检查 + flds 组装 + 两条 INSERT」只有一份。
+///
+/// Throws: [DuplicateWordError] 词已在生词本。
+Future<int> addAiWord(
+  String nbPath,
+  String word,
+  AiCard card,
+  String tags, {
+  String provider = '',
+  int promptVersion = 0,
+}) async {
+  await ensureNotebookDb(nbPath);
+  final w = word.trim();
+  // AI 卡片的 flds 仍是 5 段（不扩展 flds —— 例句走旁表，见 design D1）
+  final flds = [
+    card.canonical.trim().isEmpty ? w : card.canonical.trim(),
+    card.phonetic,
+    card.translation,
+    card.definition,
+    '', // AI 整卡没有词形变化
+  ].join(fieldSep);
 
-    await con.rawInsert(
-      'INSERT INTO cards (c_id, n_id, did, ord, mod, usn, type, queue, due, '
-      'ivl, factor, reps, lapses, left, odue, odid, flags, data) '
-      'VALUES (?, ?, ?, 0, ?, 0, ?, ?, 0, 0, 0, 0, 0, 0, 0, 0, 0, \'\')',
-      [
-        _genAnkiId().toString(),
-        noteId,
-        deckId,
-        now,
-        cardNew,
-        queueNew,
-      ],
+  final con = await _openNb(nbPath);
+  try {
+    final noteId = await _insertNote(
+      con,
+      flds: flds,
+      sfld: w,
+      tags: tags,
+      provenance: NoteProvenance(
+        source: NoteSource.ai,
+        provider: provider,
+        promptVersion: promptVersion,
+        generatedAt: DateTime.now().millisecondsSinceEpoch ~/ 1000,
+      ),
     );
+    await _insertAiGroups(con, noteId, card);
     return noteId;
+  } finally {
+    await con.close();
+  }
+}
+
+/// 插入 notes + cards（两条 INSERT + 重复检查）。
+///
+/// [addWord]（词库词）与 [addAiWord]（AI 词）共用此实现，对外仍是两个语义
+/// 不同的函数 —— 这样 `WordNotInDictError` 的语义与既有 e2e 断言都不用改。
+Future<int> _insertNote(
+  DatabaseExecutor con, {
+  required String flds,
+  required String sfld,
+  required String tags,
+  NoteProvenance? provenance,
+}) async {
+  final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+  final dup = await con.rawQuery(
+    'SELECT id FROM notes WHERE sfld = ? COLLATE NOCASE',
+    [sfld],
+  );
+  if (dup.isNotEmpty) throw DuplicateWordError(sfld);
+
+  final noteId = await con.rawInsert(
+    'INSERT INTO notes (n_id, m_id, mod, usn, tags, flds, sfld, csum, flags, data) '
+    'VALUES (?, ?, ?, 0, ?, ?, ?, ?, 0, ?)',
+    [
+      _genAnkiId().toString(),
+      modelId,
+      now,
+      tags.trim(),
+      flds,
+      sfld,
+      _csum(flds),
+      provenance == null ? '' : provenance.encode(),
+    ],
+  );
+
+  await con.rawInsert(
+    'INSERT INTO cards (c_id, n_id, did, ord, mod, usn, type, queue, due, '
+    'ivl, factor, reps, lapses, left, odue, odid, flags, data) '
+    'VALUES (?, ?, ?, 0, ?, 0, ?, ?, 0, 0, 0, 0, 0, 0, 0, 0, 0, \'\')',
+    [
+      _genAnkiId().toString(),
+      noteId,
+      deckId,
+      now,
+      cardNew,
+      queueNew,
+    ],
+  );
+  return noteId;
+}
+
+/// 把 AI 卡片的例句/搭配写入旁表（senses -> sense 组，collocations -> collocation 组）。
+Future<void> _insertAiGroups(
+    DatabaseExecutor con, int noteId, AiCard card) async {
+  var ord = 0;
+  for (final g in card.senses) {
+    await _insertAiGroup(con, noteId, WordAiGroup.kindSense, ord++, g.label,
+        g.gloss, g.examples.map((e) => (e.en, e.zh)).toList());
+  }
+  ord = 0;
+  for (final g in card.collocations) {
+    await _insertAiGroup(
+        con,
+        noteId,
+        WordAiGroup.kindCollocation,
+        ord++,
+        g.label,
+        g.gloss,
+        g.examples.map((e) => (e.en, e.zh)).toList());
+  }
+  // 降级补齐的通用例句：存为 label 为空的 sense 组，界面用「通用例句」标题渲染
+  if (card.senses.isEmpty && card.examples.isNotEmpty) {
+    await _insertAiGroup(con, noteId, WordAiGroup.kindSense, 0, '', '',
+        card.examples.map((e) => (e.en, e.zh)).toList());
+  }
+}
+
+Future<void> _insertAiGroup(
+  DatabaseExecutor con,
+  int noteId,
+  String kind,
+  int ordinal,
+  String label,
+  String gloss,
+  List<(String, String)> examples,
+) async {
+  final groupId = await con.rawInsert(
+    'INSERT INTO word_ai_groups (note_id, kind, ordinal, label, gloss) '
+    'VALUES (?, ?, ?, ?, ?)',
+    [noteId, kind, ordinal, label, gloss],
+  );
+  var i = 0;
+  for (final (en, zh) in examples) {
+    await con.rawInsert(
+      'INSERT INTO word_ai_examples (group_id, ordinal, en, zh) VALUES (?, ?, ?, ?)',
+      [groupId, i++, en, zh],
+    );
+  }
+}
+
+/// 替换某个笔记的 AI 例句/搭配（「重新生成」用）。
+Future<void> replaceAiGroups(String nbPath, int noteId, AiCard card,
+    {String provider = '', int promptVersion = 0}) async {
+  await ensureNotebookDb(nbPath);
+  final con = await _openNb(nbPath);
+  try {
+    await con.transaction((txn) async {
+      await txn.rawDelete(
+          'DELETE FROM word_ai_groups WHERE note_id = ?', [noteId]);
+      await _insertAiGroups(txn, noteId, card);
+      await txn.rawUpdate('UPDATE notes SET data = ? WHERE id = ?', [
+        NoteProvenance(
+          source: NoteSource.ai,
+          provider: provider,
+          promptVersion: promptVersion,
+          generatedAt: DateTime.now().millisecondsSinceEpoch ~/ 1000,
+        ).encode(),
+        noteId
+      ]);
+    });
   } finally {
     await con.close();
   }
@@ -198,7 +432,8 @@ Future<bool> removeWord(String nbPath, String word) async {
   }
 }
 
-NotebookEntry _rowToEntry(Map<String, Object?> row) {
+NotebookEntry _rowToEntry(Map<String, Object?> row,
+    [List<WordAiGroup> aiGroups = const []]) {
   final flds = ((row['flds'] as String?) ?? '').split(fieldSep);
   final padded = [...flds, '', '', '', '', ''].sublist(0, 5);
   return NotebookEntry(
@@ -217,11 +452,69 @@ NotebookEntry _rowToEntry(Map<String, Object?> row) {
     reps: row['reps'] as int,
     lapses: row['lapses'] as int,
     addedAt: row['mod'] as int,
+    aiGroups: aiGroups,
+    source: NoteProvenance.decode(row['data'] as String?).source,
   );
 }
 
+/// 批量取 AI 例句/搭配，按 note_id 分组（组 ordinal 升序、例句 ordinal 升序）。
+///
+/// 照 `phrase/repo.dart` 的 `_loadExamples` 形状：一次 IN 查询 + Dart 内分组，
+/// 没有 N+1。
+Future<Map<int, List<WordAiGroup>>> _loadAiGroups(
+    Database con, List<int> noteIds) async {
+  if (noteIds.isEmpty) return {};
+  final ph = List.filled(noteIds.length, '?').join(',');
+  final groups = await con.rawQuery(
+    'SELECT id, note_id, kind, ordinal, label, gloss FROM word_ai_groups '
+    'WHERE note_id IN ($ph) ORDER BY note_id, kind, ordinal, id',
+    noteIds,
+  );
+  if (groups.isEmpty) return {};
+  final gids = groups.map((g) => g['id'] as int).toList();
+  final gph = List.filled(gids.length, '?').join(',');
+  final exRows = await con.rawQuery(
+    'SELECT group_id, en, zh FROM word_ai_examples '
+    'WHERE group_id IN ($gph) ORDER BY group_id, ordinal, id',
+    gids,
+  );
+  final byGroup = <int, List<WordAiExample>>{};
+  for (final r in exRows) {
+    (byGroup[r['group_id'] as int] ??= []).add(WordAiExample(
+      en: (r['en'] as String?) ?? '',
+      zh: (r['zh'] as String?) ?? '',
+    ));
+  }
+  final out = <int, List<WordAiGroup>>{};
+  for (final g in groups) {
+    final gid = g['id'] as int;
+    (out[g['note_id'] as int] ??= []).add(WordAiGroup(
+      id: gid,
+      kind: (g['kind'] as String?) ?? WordAiGroup.kindSense,
+      label: (g['label'] as String?) ?? '',
+      gloss: (g['gloss'] as String?) ?? '',
+      examples: byGroup[gid] ?? const [],
+    ));
+  }
+  return out;
+}
+
+/// 把一批行（已 join cards）转成条目，顺带批量取 AI 组。
+///
+/// 注意必须 `return await`：在 async 函数里写 `return someFuture;` **不会等待**
+/// 该 Future，`finally` 会立刻执行并关掉连接，导致 _loadAiGroups 撞
+/// `database_closed`。这是「函数内开、finally 关」模型的经典陷阱。
+Future<List<NotebookEntry>> _entriesFromRows(
+    Database con, List<Map<String, Object?>> rows) async {
+  final ids = rows.map((r) => r['note_id'] as int).toList();
+  final aiMap = await _loadAiGroups(con, ids);
+  return rows
+      .map((r) => _rowToEntry(r, aiMap[r['note_id'] as int] ?? const []))
+      .toList();
+}
+
 const String _entrySelect = '''
-  SELECT n.id AS note_id, n.flds, n.tags, n.mod,
+  SELECT n.id AS note_id, n.flds, n.tags, n.mod, n.data,
          c.id AS card_id, c.type, c.queue, c.due, c.ivl,
          c.reps, c.lapses
   FROM notes n JOIN cards c ON c.n_id = n.id
@@ -240,7 +533,7 @@ Future<List<NotebookEntry>> listWords(
     if (!includeSuspended) sql += ' WHERE c.queue >= 0';
     sql += ' ORDER BY n.mod DESC LIMIT ?';
     final rows = await con.rawQuery(sql, [limit]);
-    return rows.map(_rowToEntry).toList();
+    return await _entriesFromRows(con, rows);
   } finally {
     await con.close();
   }
@@ -257,7 +550,7 @@ Future<List<NotebookEntry>> dueWords(String nbPath, {int limit = 20}) async {
       'ORDER BY c.type ASC, c.due ASC LIMIT ?',
       [now, limit],
     );
-    return rows.map(_rowToEntry).toList();
+    return await _entriesFromRows(con, rows);
   } finally {
     await con.close();
   }

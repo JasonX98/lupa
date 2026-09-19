@@ -8,6 +8,10 @@ import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
 
+import 'package:lupa/ai/card.dart' as ai_card;
+import 'package:lupa/ai/client.dart' as ai_client;
+import 'package:lupa/ai/enrich.dart' as ai_enrich;
+import 'package:lupa/ai/repo.dart' as ai_repo;
 import 'package:lupa/data/config.dart';
 import 'package:lupa/data/data_files.dart';
 import 'package:lupa/data/data_home.dart';
@@ -41,6 +45,10 @@ class AppState extends ChangeNotifier {
   bool showEnglish = true;
   String defaultAccent = 'us';
   bool reviewAutoRead = false;
+  // ---- AI 设置状态 ----
+  bool aiEnabled = false;
+  String aiProviderName = 'deepseek';
+  bool aiAutoEnrich = true;
 
   AudioPlayer? _player; // 懒加载：speak() 时才创建，避免测试构造 AppState 依赖平台
 
@@ -53,6 +61,10 @@ class AppState extends ChangeNotifier {
     showEnglish = s['showEnglish'] as bool? ?? true;
     defaultAccent = (s['defaultAccent'] as String?) ?? 'us';
     reviewAutoRead = s['reviewAutoRead'] as bool? ?? false;
+    final ai = _aiSettings();
+    aiEnabled = ai['enabled'] as bool? ?? false;
+    aiProviderName = (ai['providerName'] as String?) ?? 'deepseek';
+    aiAutoEnrich = ai['autoEnrich'] as bool? ?? true;
     await ensureNotebook();
     final home = dataHome();
     nbPath = notebookDbPath(home);
@@ -114,7 +126,7 @@ class AppState extends ChangeNotifier {
   // ---- 音标展示统一层 ----
   // 列表/复习/详情卡的音标都走「在线缓存优先」，与查词页同源，
   // 避免 ECDICT 老式音标（si'ri:n）与在线现代 IPA（səˈriːn）混排不一致。
-  // 数据层不动：notes.flds 里的 ECDICT 音标是 Anki 导出契约的一部分。
+  // 数据层不动：notes.flds 里的 ECDICT 音标是导出契约的一部分（flds 仍为 5 段）。
   final Map<String, PhoneticResult> _phonetics = {};
   final Set<String> _phoneticLoading = {};
 
@@ -281,6 +293,217 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
+  // ---- AI 设置 ----
+
+  Map<String, Object?> _aiSettings() {
+    final s = _settings();
+    final ai = s['ai'];
+    if (ai is Map) return ai.cast<String, Object?>();
+    s['ai'] = <String, Object?>{};
+    return s['ai'] as Map<String, Object?>;
+  }
+
+  /// AI 服务商配置块（providers.<name>）。
+  Map<String, Object?> aiProviderConfig() {
+    final providers = config['providers'];
+    final m = (providers is Map ? providers : const {}).cast<String, Object?>();
+    final pcfg = m[aiProviderName];
+    if (pcfg is Map) return pcfg.cast<String, Object?>();
+    final fresh = <String, Object?>{};
+    m[aiProviderName] = fresh;
+    config['providers'] = m;
+    return fresh;
+  }
+
+  /// 取 AI 连接参数。密钥按 `LUPA_AI_KEY` > `config.json` 解析。
+  String get aiBaseUrl =>
+      (aiProviderConfig()['base_url'] as String?)?.trim() ?? '';
+  String get aiModel => (aiProviderConfig()['model'] as String?)?.trim() ?? '';
+  int get aiTimeoutSec =>
+      (aiProviderConfig()['timeout_sec'] as num?)?.toInt() ?? 30;
+
+  /// 密钥来源：环境变量优先。返回空串 = 未配置。
+  String get aiApiKey => resolveAiKey(
+      Platform.environment[aiKeyEnvVar], config, aiProviderName);
+
+  /// 密钥是否来自环境变量（UI 要据此提示「此处输入无效」）。
+  bool get aiKeyFromEnv =>
+      (Platform.environment[aiKeyEnvVar] ?? '').trim().isNotEmpty;
+
+  /// AI 是否**可用**：已启用 + 有密钥。UI 与编排都该看这个而不是只看 enabled。
+  bool get aiReady => aiEnabled && aiApiKey.isNotEmpty;
+
+  /// 构造客户端。未就绪时返回 null（调用方不应为「AI 没开」写 try/catch）。
+  ai_client.AiClient? aiClient() {
+    if (!aiReady) return null;
+    return ai_client.AiClient(ai_client.AiConfig(
+      baseUrl: aiBaseUrl.isEmpty ? 'https://api.deepseek.com' : aiBaseUrl,
+      apiKey: aiApiKey,
+      model: aiModel.isEmpty ? 'deepseek-flash' : aiModel,
+      timeout: Duration(seconds: aiTimeoutSec),
+    ));
+  }
+
+  void setAiEnabled(bool v) {
+    _aiSettings()['enabled'] = v;
+    aiEnabled = v;
+    saveConfig(config);
+    notifyListeners();
+  }
+
+  void setAiAutoEnrich(bool v) {
+    _aiSettings()['autoEnrich'] = v;
+    aiAutoEnrich = v;
+    saveConfig(config);
+    notifyListeners();
+  }
+
+  void setAiProviderName(String v) {
+    _aiSettings()['providerName'] = v;
+    aiProviderName = v;
+    saveConfig(config);
+    notifyListeners();
+  }
+
+  /// 写 AI 连接配置（base_url / model / api_key / timeout_sec）。
+  void setAiConnection({String? baseUrl, String? model, String? apiKey, int? timeoutSec}) {
+    final pcfg = aiProviderConfig();
+    if (baseUrl != null) pcfg['base_url'] = baseUrl.trim();
+    if (model != null) pcfg['model'] = model.trim();
+    if (apiKey != null) pcfg['api_key'] = apiKey.trim();
+    if (timeoutSec != null) pcfg['timeout_sec'] = timeoutSec;
+    saveConfig(config);
+    notifyListeners();
+  }
+
+  /// AI 缓存统计。
+  Future<AiCacheStats> aiCacheStatsNow() => aiCacheStats(nbPath);
+
+  /// 清理 AI 缓存（**不动**已保存的例句与搭配）。
+  Future<int> clearAiCacheNow() async {
+    final n = await clearAiCache(nbPath);
+    notifyListeners();
+    return n;
+  }
+
+  /// 对某个词做一次 AI 补齐/生成。供 UI 调用。
+  ///
+  /// [mode] 决定 feature：词库命中用 enrich/enrichPlain，未命中用 define。
+  Future<ai_enrich.AiOutcome> enrichWord({
+    required String word,
+    required ai_card.AiFeature feature,
+    List<String> expectedPos = const [],
+    List<String> knownForms = const [],
+    String existingTranslation = '',
+    bool forceRegenerate = false,
+  }) async {
+    if (forceRegenerate) {
+      // 「重新生成」：先删该词的全部缓存，再走正常流程
+      await ai_repo.deleteAiCacheForWord(nbPath, word);
+    }
+    return ai_enrich.enrich(
+      nbPath,
+      ai_enrich.AiEnrichRequest(
+        word: word,
+        feature: feature,
+        expectedPos: expectedPos,
+        knownForms: knownForms,
+        existingTranslation: existingTranslation,
+      ),
+      client: aiClient(),
+      provider: aiProviderName,
+      model: aiModel.isEmpty ? 'deepseek-flash' : aiModel,
+    );
+  }
+
+  // ---- 查词页的 AI 状态（渐进增强，照 preloadPhonetics 的骨架）----
+  //
+  // 三态缓存：
+  //   _aiOutcomes  已取到的结果（含降级/失败原因）
+  //   _aiLoading   正在请求中的词（并发去重）
+  // 每成功一个 notifyListeners 一次，列表/卡片渐进增强。
+  final Map<String, ai_enrich.AiOutcome> _aiOutcomes = {};
+  final Set<String> _aiLoading = {};
+
+  ai_enrich.AiOutcome? aiOutcomeOf(String word) =>
+      _aiOutcomes[word.trim().toLowerCase()];
+
+  bool isAiLoading(String word) =>
+      _aiLoading.contains(word.trim().toLowerCase());
+
+  /// 取该词的 AI 内容（缓存优先，不重复请求）。
+  ///
+  /// [feature] 为 null 时按词库命中情况自动选：命中且能解析词性 -> enrich；
+  /// 命中但无词性且是内容词 -> enrichPlain；命中但含大写（缩写/专名）-> 不请求；
+  /// 未命中 -> define。
+  Future<ai_enrich.AiOutcome?> loadAiFor(
+    String word, {
+    ai_card.AiFeature? feature,
+    List<String> expectedPos = const [],
+    List<String> knownForms = const [],
+    String existingTranslation = '',
+    bool forceRegenerate = false,
+  }) async {
+    final key = word.trim().toLowerCase();
+    if (key.isEmpty) return null;
+    if (!forceRegenerate) {
+      final cached = _aiOutcomes[key];
+      if (cached != null) return cached;
+      if (_aiLoading.contains(key)) return null; // 已在请求中，不重复发起
+    }
+    if (!aiReady) {
+      final none = const ai_enrich.AiOutcome(reason: 'AI 未启用');
+      _aiOutcomes[key] = none;
+      notifyListeners();
+      return none;
+    }
+    _aiLoading.add(key);
+    notifyListeners();
+    try {
+      final f = feature ??
+          (expectedPos.isNotEmpty
+              ? ai_card.AiFeature.enrich
+              : ai_card.AiFeature.enrichPlain);
+      final outcome = await enrichWord(
+        word: word,
+        feature: f,
+        expectedPos: expectedPos,
+        knownForms: knownForms,
+        existingTranslation: existingTranslation,
+        forceRegenerate: forceRegenerate,
+      );
+      _aiOutcomes[key] = outcome;
+      return outcome;
+    } catch (e) {
+      final failed = ai_enrich.AiOutcome(reason: 'AI 补齐失败: $e');
+      _aiOutcomes[key] = failed;
+      return failed;
+    } finally {
+      _aiLoading.remove(key);
+      notifyListeners();
+    }
+  }
+
+  /// 请求切到设置页（AI 鉴权失败时由查词页/详情弹窗调用）。
+  ///
+  /// 用「请求计数」而非直接持有路由：AppState 不依赖 UI 层，
+  /// AppShell 监听它并完成实际切换。
+  int _openSettingsRequests = 0;
+  int get openSettingsRequests => _openSettingsRequests;
+  void requestOpenSettings() {
+    _openSettingsRequests++;
+    notifyListeners();
+  }
+
+  /// 丢弃某个词的 AI 状态（重新查询时清掉旧结果）。
+  void forgetAi(String word) => _aiOutcomes.remove(word.trim().toLowerCase());
+
+  /// 切库后清空 AI 状态（与音标缓存同理：缓存为 DB 背书，切库后旧条目无意义）。
+  void clearAiState() {
+    _aiOutcomes.clear();
+    _aiLoading.clear();
+  }
+
   /// 运行时切换数据目录。dst 已含 notebook.sqlite 则直接切换；
   /// 空目录且 copyExisting=true 时先复制 notebook/dict/exports，再切换。
   Future<void> switchDataDir(String newDir, {bool copyExisting = false}) async {
@@ -295,6 +518,7 @@ class AppState extends ChangeNotifier {
     _settings()['dataDir'] = dst.path;
     saveConfig(config);
     _phonetics.clear(); // 音标缓存为 DB 背书，切库后旧条目无意义
+    clearAiState();
     await refresh();
     notifyListeners();
   }

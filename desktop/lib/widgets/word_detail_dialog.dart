@@ -3,6 +3,11 @@
 // 查不到时回退生词本五段字段（NotebookEntry）。视觉与查词页结果卡同构。
 import 'package:flutter/material.dart';
 
+import 'package:lupa/ai/card.dart' show AiCard, AiExample, AiFeature, AiGroup;
+import 'package:lupa/ai/enrich.dart' show AiOutcome;
+import 'package:lupa/ai/pos.dart';
+import 'package:lupa/ai/prompt.dart' show promptVersion;
+import 'package:lupa/dict/lemma.dart' show parseExchange;
 import 'package:lupa/dict/query.dart';
 import 'package:lupa/media/phonetic.dart';
 import 'package:lupa/notebook/repo.dart';
@@ -38,6 +43,16 @@ class _WordDetailDialogState extends State<WordDetailDialog> {
   PhoneticResult? _phonetic;
   bool _loading = true;
   String? _speakingAccent;
+  bool _regenerating = false;
+
+  /// 刚刚补齐/重新生成得到的 AI 内容。
+  ///
+  /// 为什么需要它：[widget.entry] 是**打开弹窗时的不可变快照**。补齐成功后
+  /// `replaceAiGroups` 写的是库、`state.refresh()` 刷的是 AppState 的列表，
+  /// 两者都不会改变手上这个 `NotebookEntry` 对象 —— 于是弹窗里的
+  /// `nb.aiGroups` 仍是空的，用户必须关掉再打开才能看到（实测踩过）。
+  /// 这里直接把刚生成的结果拿来渲染，既即时又不必回查。
+  AiOutcome? _freshAi;
 
   @override
   void initState() {
@@ -67,6 +82,78 @@ class _WordDetailDialogState extends State<WordDetailDialog> {
       // 朗读失败（需联网）静默：详情卡是浏览场景，不打断
     } finally {
       if (mounted) setState(() => _speakingAccent = null);
+    }
+  }
+
+  /// 重新生成 AI 内容（已有内容时才走，先二次确认）。
+  Future<void> _regenerate() async {
+    final word = widget.entry.word;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('重新生成'),
+        content: Text('将重新生成「$word」的例句与搭配，并覆盖当前内容。继续？'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('取消')),
+          FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('重新生成')),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    await _runEnrich(word: word, forceRegenerate: true, verb: '重新生成');
+  }
+
+  /// 首次补齐 AI 内容（该词尚无例句时）。无需二次确认 —— 没有内容可覆盖。
+  Future<void> _enrich() =>
+      _runEnrich(word: widget.entry.word, forceRegenerate: false, verb: '补齐');
+
+  /// 补齐与重新生成的共同实现（区别只在是否先删缓存、以及提示文案）。
+  ///
+  /// 两条路径都会把结果写进**旁表**（不只是缓存）—— 否则生词本里看不到，
+  /// 直到下次重新打开详情弹窗。
+  Future<void> _runEnrich({
+    required String word,
+    required bool forceRegenerate,
+    required String verb,
+  }) async {
+    setState(() => _regenerating = true);
+    try {
+      final e = widget.entry;
+      final mode = enrichMode(e.word, e.translation);
+      final outcome = await widget.state.enrichWord(
+        word: word,
+        feature: mode == EnrichMode.full
+            ? AiFeature.enrich
+            : (mode == EnrichMode.degraded
+                ? AiFeature.enrichPlain
+                : AiFeature.define),
+        expectedPos: parsePos(e.translation),
+        knownForms: parseExchange(e.exchange).keys.toList(),
+        existingTranslation: e.translation,
+        forceRegenerate: forceRegenerate,
+      );
+      final card = outcome.card;
+      if (card != null) {
+        // 两侧都写回：缓存已由 enrich 写入，这里更新已保存的旁表
+        await replaceAiGroups(widget.state.nbPath, e.noteId, card,
+            provider: widget.state.aiProviderName,
+            promptVersion: promptVersion);
+        await widget.state.refresh();
+        // 旁表写成功后才更新本地渲染状态（否则会显示未落库的内容）
+        if (mounted) setState(() => _freshAi = outcome);
+      }
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text(card == null
+                ? '$verb失败：${outcome.reason}'
+                : '已$verb「$word」的例句与搭配')));
+      }
+    } finally {
+      if (mounted) setState(() => _regenerating = false);
     }
   }
 
@@ -156,13 +243,17 @@ class _WordDetailDialogState extends State<WordDetailDialog> {
                     ]),
                     const SizedBox(height: 16),
                     // ---- 标签行：柯林斯 / 牛津 / 词频 / 考试 ----
-                    if (_dict != null) ...[
+                    if (_dict != null || nb.source == NoteSource.ai) ...[
                       Wrap(
                         spacing: 6,
                         runSpacing: 6,
                         children: [
-                          for (final (label, kind) in _badges(_dict!))
-                            TagChip(label: label, kind: kind),
+                          if (_dict != null)
+                            for (final (label, kind) in _badges(_dict!))
+                              TagChip(label: label, kind: kind),
+                          if (nb.source == NoteSource.ai)
+                            const TagChip(
+                                label: 'AI 生成', kind: TagKind.plain),
                           for (final t in tagList(tag))
                             TagChip(label: t, kind: TagKind.exam),
                         ],
@@ -184,6 +275,34 @@ class _WordDetailDialogState extends State<WordDetailDialog> {
                           child: Text('${line.$1}  ${line.$2}',
                               style: text.bodyMedium),
                         )),
+                    // ---- AI 例句与搭配（已保存的快照，不重新请求）----
+                    // 刚补齐的结果优先于打开时的快照（见 _freshAi 的注释）
+                    () {
+                      final hasAi = detailHasAi(fresh: _freshAi, entry: nb);
+                      if (!hasAi && !widget.state.aiReady) {
+                        return const SizedBox.shrink();
+                      }
+                      return AiSection(
+                        outcome: resolveDetailAi(fresh: _freshAi, entry: nb),
+                        loading: _regenerating,
+                        // 文案不再承诺「点下方」——按钮渲染与否由 AiSection 决定，
+                        // 承诺与能力必须绑在一起（曾出现「可点下方补齐」但下方无物）。
+                        unavailableReason: hasAi
+                            ? null
+                            : (widget.state.aiReady
+                                ? '该词尚无 AI 例句'
+                                : 'AI 未启用'),
+                        // 尚无内容 -> 补齐（无需确认）；已有内容 -> 重新生成（先确认）
+                        onRequest:
+                            (widget.state.aiReady && !hasAi) ? _enrich : null,
+                        onRegenerate:
+                            (widget.state.aiReady && hasAi) ? _regenerate : null,
+                        onGoSettings: widget.state.aiReady
+                            ? null
+                            : () => widget.state.requestOpenSettings(),
+                        defFontSize: widget.state.defFontSize,
+                      );
+                    }(),
                     const SizedBox(height: 18),
                     // ---- 调度状态 ----
                     Container(
@@ -248,3 +367,71 @@ class _SchedItem extends StatelessWidget {
     ]);
   }
 }
+
+/// 把已保存的旁表快照包成 [AiOutcome]，让详情弹窗与查词页共用同一渲染组件。
+///
+/// 详情弹窗展示的是**存进库里的那一份**（design D5-1 的「存了什么就看到什么」），
+/// 不重新请求 —— 背单词时内容随 API 波动对记忆是负面的。
+AiOutcome? aiOutcomeFromNotebook(NotebookEntry nb) {
+    if (!nb.hasAi) return null;
+    final card = AiCard(
+      word: nb.word,
+      isKnownWord: true,
+      phonetic: nb.phonetic,
+      translation: nb.translation,
+      definition: nb.definition,
+      senses: [
+        for (final g in nb.aiSenses)
+          AiGroup(
+            kind: AiGroup.kindSense,
+            label: g.label,
+            gloss: g.gloss,
+            examples: [
+              for (final e in g.examples) AiExample(en: e.en, zh: e.zh)
+            ],
+          ),
+      ],
+      collocations: [
+        for (final g in nb.aiCollocations)
+          AiGroup(
+            kind: AiGroup.kindCollocation,
+            label: g.label,
+            gloss: g.gloss,
+            examples: [
+              for (final e in g.examples) AiExample(en: e.en, zh: e.zh)
+            ],
+          ),
+      ],
+    );
+    // 降级内容：label 为空的 sense 组（见 repo 的 _insertAiGroups）
+    final plain = card.senses.where((g) => g.label.trim().isEmpty).toList();
+    if (plain.isNotEmpty && card.senses.length == plain.length) {
+      return AiOutcome(
+        card: AiCard(
+          word: nb.word,
+          isKnownWord: true,
+          examples: [
+            for (final g in plain) ...g.examples,
+          ],
+          collocations: card.collocations,
+        ),
+      );
+    }
+    return AiOutcome(card: card);
+}
+
+/// 详情弹窗该渲染哪一份 AI 内容。
+///
+/// **刚补齐/重新生成的结果优先于打开弹窗时的快照。**
+///
+/// 为什么需要这个函数（回归点）：[NotebookEntry] 是不可变的，弹窗打开时拿到
+/// 的就是那一刻的快照。补齐成功后 `replaceAiGroups` 写的是库、`state.refresh()`
+/// 刷的是 AppState 的列表，两者都不会改变手上的那个对象 —— 于是界面仍是空的，
+/// 用户必须关掉弹窗再打开才能看到（实测踩过）。
+/// 把它抽成纯函数是为了让这个决策能被快速测到（毫秒级、无网络、无 widget）。
+AiOutcome? resolveDetailAi({AiOutcome? fresh, required NotebookEntry entry}) =>
+    fresh ?? aiOutcomeFromNotebook(entry);
+
+/// 该词是否已有 AI 内容（含刚补齐但尚未从库里读回的那一次）。
+bool detailHasAi({AiOutcome? fresh, required NotebookEntry entry}) =>
+    fresh != null || entry.hasAi;

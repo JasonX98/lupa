@@ -168,4 +168,128 @@ void main() {
     expect(state.nbPath, p.absolute(p.join(dst.path, 'notebook.sqlite')));
     dst.deleteSync(recursive: true);
   });
+
+  // ---- AI 设置 ----
+
+  test('4.4 AI 默认关闭且自动补齐默认开（首次运行不发任何请求）', () async {
+    final state = AppState();
+    await state.init();
+    expect(state.aiEnabled, isFalse);
+    expect(state.aiAutoEnrich, isTrue);
+    expect(state.aiProviderName, 'deepseek');
+    expect(state.aiModel, 'deepseek-flash');
+    expect(state.aiBaseUrl, 'https://api.deepseek.com');
+    expect(state.aiReady, isFalse); // 未启用 + 无密钥
+  });
+
+  test('4.5 启用但无密钥时 aiReady 仍为 false（启用 ≠ 可用）', () async {
+    final state = AppState();
+    await state.init();
+    state.setAiEnabled(true);
+    expect(state.aiEnabled, isTrue);
+    expect(state.aiApiKey, isEmpty);
+    expect(state.aiReady, isFalse);
+    expect(state.aiClient(), isNull, reason: '未就绪时不应构造客户端');
+  });
+
+  test('4.6 写入密钥后 aiReady 为 true 且能构造客户端', () async {
+    final state = AppState();
+    await state.init();
+    state.setAiEnabled(true);
+    state.setAiConnection(apiKey: 'sk-test-123');
+    expect(state.aiApiKey, 'sk-test-123');
+    expect(state.aiReady, isTrue);
+    final c = state.aiClient();
+    expect(c, isNotNull);
+    expect(c!.config.model, 'deepseek-flash');
+    expect(c.config.apiKey, 'sk-test-123');
+  });
+
+  test('4.7 AI 设置持久化到 config.json（重启后仍生效）', () async {
+    final state = AppState();
+    await state.init();
+    state.setAiEnabled(true);
+    state.setAiAutoEnrich(false);
+    state.setAiConnection(baseUrl: 'https://example.test', model: 'my-model', apiKey: 'k1');
+
+    // 重新加载配置（模拟重启）
+    final again = AppState();
+    await again.init();
+    expect(again.aiEnabled, isTrue);
+    expect(again.aiAutoEnrich, isFalse);
+    expect(again.aiBaseUrl, 'https://example.test');
+    expect(again.aiModel, 'my-model');
+    expect(again.aiApiKey, 'k1');
+  });
+
+  test('4.8 连接信息在 providers.<name>，行为开关在 settings.ai', () async {
+    final state = AppState();
+    await state.init();
+    state.setAiConnection(baseUrl: 'https://x.test', model: 'm', apiKey: 'k');
+    state.setAiEnabled(true);
+
+    final providers = state.config['providers'] as Map<String, Object?>;
+    final ds = (providers['deepseek'] as Map).cast<String, Object?>();
+    expect(ds['base_url'], 'https://x.test');
+    expect(ds['model'], 'm');
+    expect(ds['api_key'], 'k');
+
+    final settings = (state.config['settings'] as Map).cast<String, Object?>();
+    final ai = (settings['ai'] as Map).cast<String, Object?>();
+    expect(ai['enabled'], true);
+    expect(ai.containsKey('api_key'), isFalse, reason: '密钥不应进 settings.ai');
+  });
+
+  test('4.9 AI 缓存统计与清理（清理不影响其他表）', () async {
+    final state = AppState();
+    await state.init();
+    final before = await state.aiCacheStatsNow();
+    expect(before.count, 0);
+    expect(before.totalTokens, 0);
+    final removed = await state.clearAiCacheNow();
+    expect(removed, 0);
+    final after = await state.aiCacheStatsNow();
+    expect(after.count, 0);
+  });
+
+  group('resolveAiKey（纯函数：环境变量优先于 config.json）', () {
+    final cfg = <String, Object?>{
+      'providers': {
+        'deepseek': {'api_key': 'from-config'},
+      },
+    };
+
+    test('环境变量优先', () {
+      expect(resolveAiKey('from-env', cfg), 'from-env');
+    });
+
+    test('环境变量为空时回落配置文件', () {
+      expect(resolveAiKey('', cfg), 'from-config');
+      expect(resolveAiKey(null, cfg), 'from-config');
+      expect(resolveAiKey('   ', cfg), 'from-config');
+    });
+
+    test('两处都空 -> 空串（视为未配置）', () {
+      expect(resolveAiKey(null, {'providers': {'deepseek': {}}}), '');
+      expect(resolveAiKey(null, {}), '');
+      expect(resolveAiKey('', {'providers': {}}), '');
+    });
+
+    test('去掉首尾空白', () {
+      expect(resolveAiKey('  k  ', cfg), 'k');
+      expect(resolveAiKey(null, {
+        'providers': {
+          'deepseek': {'api_key': '  k2  '}
+        }
+      }), 'k2');
+    });
+
+    test('provider 名不匹配时视为未配置', () {
+      expect(resolveAiKey(null, cfg, 'other'), '');
+    });
+
+    test('只支持一个环境变量名（多来源会多一层优先级要解释）', () {
+      expect(aiKeyEnvVar, 'LUPA_AI_KEY');
+    });
+  });
 }

@@ -14,7 +14,7 @@ Lupa 是一款英语学习离线词典，重点不是"再多一个词典"，而�
 
 | 入口 | 目录 | 技术栈 |
 |---|---|---|
-| Windows 桌面应用 | `desktop/` | Flutter / Dart；`ganki`、`sqflite_common_ffi`、`sqlite3`、`audioplayers` |
+| Windows 桌面应用 | `desktop/` | Flutter / Dart；`ganki`、`sqflite_common_ffi`、`sqlite3`、`audioplayers`；联网能力（音标/TTS/AI）全部用 `dart:io HttpClient` 手写，无 HTTP 库依赖 |
 
 ## 常用命令
 
@@ -47,7 +47,20 @@ LUPA_HOME=D:\AppFile\Lupa\data dart run tool/verify_media.dart        # 音标/T
 LUPA_HOME=D:\AppFile\Lupa\data dart run tool/verify_export.dart       # apkg/csv
 LUPA_HOME=D:\AppFile\Lupa\data dart run tool/verify_e2e.dart          # 端到端 15 断言
 LUPA_HOME=D:\AppFile\Lupa\data dart run tool/verify_phrase_repo.dart # 短语建库/CRUD/调度/导出
+LUPA_HOME=D:\AppFile\Lupa\data dart run tool/verify_ai.dart          # AI 链路（本地 stub，不触网、不需密钥）
 ```
+
+`verify_ai.dart` 的 `--live` 是**唯一会联网、会花钱的验证**，需要真实密钥：
+
+```bash
+cd desktop
+export LUPA_HOME=D:\AppFile\Lupa\data
+export LUPA_AI_KEY="$(tr -d '\r\n' < path/to/key.txt)"
+# 注意：不要写 `VAR=x cmd "$VAR"` —— 同一命令行里 $VAR 取的是**旧值**（实测踩过，传了空密钥→401）
+dart run tool/verify_ai.dart --live "$LUPA_AI_KEY"
+```
+
+它输出四项指标：L2 词性覆盖率、L5 例句含词率、平均请求次数（> 1.5 说明提示词需改）、前缀缓存命中率。**stub 测不出提示词质量**（它只会返回写死的「正确答案」，等于自己给自己出题），所以 `--live` 不能省。
 
 ### 复习数据维护脚本（`desktop/tool/reset_review_state.dart`）
 
@@ -70,20 +83,22 @@ dart run tool/reset_review_state.dart --all --apply      # 真正写入
 3. **媒体缓存键永远三段式**：`provider:word:format`（如 `youdao:abandon:mp3-us`），URL 单列字段。
 4. **apkg 稳定 guid**：单词 `sha1("lupa::word")`、短语 `sha1("lupa::phrase::<text>")`；各自独立 model/deck，混用不产生重复卡片。
 5. **数据目录**：`LUPA_HOME` 环境变量优先；未设时默认 `<exe>/lupa_data`（便携默认，解压即用）。
-6. **版本号**：`desktop/pubspec.yaml` 的 `version` 为唯一事实源，统一为 `x.y.z`（当前 `0.2.3`）。
+6. **版本号**：`desktop/pubspec.yaml` 的 `version` 为唯一事实源，统一为 `x.y.z`（当前 `0.3.0`）。`desktop/lib/version.dart` 是它的副本（设置页脚显示值 + 写入库 `meta.lupa_version`），由 `test/version_test.dart` 读 pubspec 断言一致 —— 手抄常量必然漂移，发版时两处一起改。
 7. **发行 zip 位置**：桌面发布 zip（`Lupa-<version>-windows.zip`）统一放在 `desktop/build/windows/x64/runner/Release/`（`flutter build windows --release` 的输出目录），不放在仓库根目录。
+8. **颜色语义**：`scheme.outline` 被映射到**边框色**（`#E4E2DD`，对比度 1.2:1）—— **只能用于描边，不得当作文字或图标颜色**。弱化前景色用 `scheme.onSurfaceVariant`（约 9:1）；`bodySmall` 默认就是已校准的 `tx3`（4.8:1）。
+9. **`notes.flds` 仍为 5 段**（`0x1F` 分隔）。AI 例句与搭配**存独立旁表** `word_ai_groups` / `word_ai_examples`（不扩展 flds）；`notes.data` 存 provenance JSON（来源 / 服务商 / prompt 版本）。
 
 ## 验证
 
 - **桌面端**：`flutter test`（主题/词形/外壳）+ `desktop/tool/verify_*.dart` 七组（headless，走真实词库 + 临时生词本库）。
-- **导出一致性**：`desktop/tool/anki_import_compare.py` 用官方 `anki` 库校验 Dart 版 apkg 的导入产出（笔记 / guid / 字段 / model / deck）。
+- **导出一致性**：`desktop/tool/anki_import_compare.py` 用官方 `anki` 库校验 Dart 版 apkg 的导入产出（笔记 / guid / 字段 / model / deck）。**这是可选的历史校验工具，不再是验收条件** —— Anki 只是实现参考，不是需要保持兼容的契约；内部表结构、`flds` 格式、`model` 字段数都不以「Anki 能不能吃下」为决策依据。
 
 ## 数据目录结构
 
 ```
 LUPA_HOME（或 <exe>/lupa_data）
 ├── dict.sqlite       词库（只读，应用不自建）
-├── notebook.sqlite   生词本 + 短语集 + audio/phonetic/ai 缓存表
+├── notebook.sqlite   生词本 + 短语集 + AI 词卡旁表 + audio/phonetic/ai 缓存表
 ├── config.json       服务商 URL 配置（首次运行自动生成）
 └── exports/          导出产物（apkg/csv，自动创建）
 ```

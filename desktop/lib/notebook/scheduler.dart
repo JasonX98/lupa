@@ -9,7 +9,7 @@ library;
 /// 固定间隔档位（天）
 const List<int> intervals = [1, 3, 7, 15, 30];
 
-/// ease 取值（与 Anki 一致）：1=Again 忘了 / 2=Hard 模糊 / 3=Good 记得 / 4=Easy 简单
+/// ease 取值（沿用 Anki 的四档命名）：1=Again 忘了 / 2=Hard 模糊 / 3=Good 记得 / 4=Easy 简单
 const int easeAgain = 1;
 const int easeHard = 2;
 const int easeGood = 3;
@@ -48,7 +48,7 @@ int nextInterval(int currentIvl, int ease) {
 
 /// 返回 (nextIvl, dueUnixSeconds)。
 ///
-/// Anki 约定：review 卡的 due = 当天零点 + ivl 天；v1 简化：now + ivl*86400。
+/// 参考 Anki 的 due 约定（当天零点 + ivl 天）；v1 简化为 now + ivl*86400。
 (int, int) dueTimestamp(int currentIvl, int ease, {int? now}) {
   final ts = now ?? DateTime.now().millisecondsSinceEpoch ~/ 1000;
   final nextIvl = nextInterval(currentIvl, ease);
