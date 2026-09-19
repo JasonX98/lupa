@@ -90,7 +90,7 @@ dart run tool/reset_review_state.dart --all --apply      # 真正写入
 
 ## 验证
 
-- **桌面端**：`flutter test`（主题/词形/外壳）+ `desktop/tool/verify_*.dart` 七组（headless，走真实词库 + 临时生词本库）。
+- **桌面端**：`flutter test`（主题/词形/外壳/AI 纯函数与界面回归）+ `desktop/tool/verify_*.dart` 八组（headless，走真实词库 + 临时生词本库）。
 - **导出一致性**：`desktop/tool/anki_import_compare.py` 用官方 `anki` 库校验 Dart 版 apkg 的导入产出（笔记 / guid / 字段 / model / deck）。**这是可选的历史校验工具，不再是验收条件** —— Anki 只是实现参考，不是需要保持兼容的契约；内部表结构、`flds` 格式、`model` 字段数都不以「Anki 能不能吃下」为决策依据。
 
 ## 数据目录结构

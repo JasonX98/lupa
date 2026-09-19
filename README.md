@@ -122,21 +122,24 @@ dart run tool/reset_review_state.dart --all --apply             # 真正写入�
 
 ```
 desktop/                   # Flutter Windows 桌面版
-├── lib/data/              # data_home / config / notebook_db / schema.sql（唯一事实源，含短语三表）
-├── lib/dict|notebook|media|export/   # 单词侧业务模块（repo / query / scheduler / media / export）
+├── lib/data/              # data_home / config / notebook_db / schema.sql（唯一事实源，含短语三表 + AI 词卡旁表）
+├── lib/dict|notebook|media|export/   # 单词侧业务模块（repo / query / lemma / scheduler / media / export）
+├── lib/ai/                # AI 链路（纯函数解析与校验 / 客户端 / 缓存 / 编排 / 提示词）
 ├── lib/phrase/            # 短语仓库层（独立三表 CRUD / 到期队列 / 统计，复用 scheduler 纯函数）
 ├── lib/theme/             # 「纸感 + 玉色」设计 token（明暗双主题）
 ├── lib/state/             # AppState 编排层
-├── lib/widgets/           # AppShell 侧栏 + 词详情卡片 + 短语组件等
+├── lib/widgets/           # AppShell 侧栏 + 词详情卡片 + AI 内容区块 + 短语组件等
 ├── lib/pages/             # 查词 / 生词本 / 单词复习 / 短语集 / 短语复习 / 导出 / 设置
-└── tool/                  # apkg spike + verify_* 验证脚本 + Anki 导入对比
+└── tool/                  # apkg spike + verify_* 验证脚本 + Anki 导入对比（可选历史工具，非验收条件）
 ```
 
 ## 工程约束
 
 1. `schema.sql` 仅用 SQLite ≥ 3.38 标准 SQL，不用 JSON1 / STRICT / RETURNING / virtual table。
 2. 业务逻辑写成**纯函数**——不读 stdin / 不写 stdout；UI 只做参数解析和展示。
-3. 媒体缓存键永远用三段式 `provider:word:format`（如 `youdao:abandon:mp3-us`），URL 单列字段。
+3. 缓存键永远用三段式：媒体缓存 `provider:word:format`（如 `youdao:abandon:mp3-us`），AI 缓存 `<provider>/<model>:<word>:<feature>`（模型折进 provider 段，换模型天然分家）；URL 单列字段。
+4. 颜色语义：`scheme.outline` 是**边框色**（对比度 1.2:1）**只能描边，不得当文字或图标颜色**；弱化前景色用 `scheme.onSurfaceVariant`。
+5. 界面文案不得承诺界面上不存在的控件（如写「可点下方补齐」就必须真的渲染出那个按钮）。
 
 ## 许可
 
