@@ -106,8 +106,13 @@ class AppState extends ChangeNotifier {
   }
 
   /// 加生词。异常（词未收录 / 重复）由调用方捕获后给用户提示。
-  Future<int> add(String word) async {
+  ///
+  /// [aiCard] 非空时，同时把 AI 例句/搭配写入 word_ai_groups/examples 旁表。
+  Future<int> add(String word, {ai_card.AiCard? aiCard}) async {
     final noteId = await addWord(nbPath, dictDb, word, '');
+    if (aiCard != null) {
+      await replaceAiGroups(nbPath, noteId, aiCard);
+    }
     await refresh();
     return noteId;
   }

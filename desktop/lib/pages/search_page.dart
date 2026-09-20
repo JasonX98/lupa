@@ -313,7 +313,7 @@ class _SearchPageState extends State<SearchPage> {
       }
     } else {
       try {
-        await widget.state.add(word);
+        await widget.state.add(word, aiCard: _ai?.card);
         if (mounted) {
           ScaffoldMessenger.of(context)
               .showSnackBar(SnackBar(content: Text('已加入生词本「$word」')));

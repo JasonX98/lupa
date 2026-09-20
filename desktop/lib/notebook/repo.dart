@@ -385,12 +385,21 @@ Future<void> replaceAiGroups(String nbPath, int noteId, AiCard card,
   final con = await _openNb(nbPath);
   try {
     await con.transaction((txn) async {
+      // 来源必须**保持原样**：这里只替换 AI 例句/搭配，不改变「核心词条内容」的
+      // 来源。词库词的核心内容来自词库，不会因为补了例句就变成 AI 生成
+      //（spec「卡片来源标记」记的是核心内容的来源）。这里曾硬编码成 ai，
+      // 于是「词库词 + AI 例句」会被界面标成「AI 生成」—— 对词库词点「AI 补齐」
+      // 即能踩到。
+      final prevRows =
+          await txn.rawQuery('SELECT data FROM notes WHERE id = ?', [noteId]);
+      final prev = NoteProvenance.decode(
+          prevRows.isEmpty ? null : prevRows.first['data'] as String?);
       await txn.rawDelete(
           'DELETE FROM word_ai_groups WHERE note_id = ?', [noteId]);
       await _insertAiGroups(txn, noteId, card);
       await txn.rawUpdate('UPDATE notes SET data = ? WHERE id = ?', [
         NoteProvenance(
-          source: NoteSource.ai,
+          source: prev.source,
           provider: provider,
           promptVersion: promptVersion,
           generatedAt: DateTime.now().millisecondsSinceEpoch ~/ 1000,
