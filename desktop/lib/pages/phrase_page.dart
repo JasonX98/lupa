@@ -270,7 +270,7 @@ class _EmptyState extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(Icons.forum_outlined,
-              size: 48, color: Theme.of(context).colorScheme.outline),
+              size: 48, color: Theme.of(context).colorScheme.onSurfaceVariant),
           const SizedBox(height: 14),
           Text(filtered ? '该标签下暂无短语' : '短语集还是空的', style: text.titleLarge),
           const SizedBox(height: 6),

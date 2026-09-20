@@ -14,6 +14,9 @@ class LupaColors {
   static const tx1Light = Color(0xFF191C19);
   static const tx2Light = Color(0xFF4F544E);
   static const tx3Light = Color(0xFF6E736D);
+  // 弱化前景色（映射到 ColorScheme.onSurfaceVariant）：图标/弱文字的通用前景。
+  // 与 surface 对比度 9.3:1，浅深主题都远超 WCAG AA（文字 4.5:1 / 图标 3:1）。
+  static const fgMutedLight = Color(0xFF3F4946);
 
   // ---- dark ----
   static const bgDark = Color(0xFF1C1E1C);
@@ -22,6 +25,7 @@ class LupaColors {
   static const tx1Dark = Color(0xFFECEDEA);
   static const tx2Dark = Color(0xFFB7BBB4);
   static const tx3Dark = Color(0xFF9BA09A);
+  static const fgMutedDark = Color(0xFFBEC9C5); // 与 surfaceDark 对比度 8.9:1
 
   // ---- accent（玉青，「璐」本义美玉）----
   static const jade = Color(0xFF0E7C6B);
@@ -58,6 +62,7 @@ ThemeData _buildLupaTheme(Brightness brightness) {
   final accent = isDark ? LupaColors.jadeDark : LupaColors.jade;
   final onAccent = isDark ? LupaColors.onJadeDark : LupaColors.onJadeLight;
   final danger = isDark ? LupaColors.dangerDark : LupaColors.dangerLight;
+  final fgMuted = isDark ? LupaColors.fgMutedDark : LupaColors.fgMutedLight;
 
   final scheme = ColorScheme.fromSeed(seedColor: accent, brightness: brightness)
       .copyWith(
@@ -69,6 +74,11 @@ ThemeData _buildLupaTheme(Brightness brightness) {
         onSurface: tx1,
         error: danger,
         onError: Colors.white,
+        // 它才是**弱化前景色**（图标 / 次要文字都该用它）：浅 9.3:1、深 8.9:1。
+        // 而同一处的 `outline` 是**边框色**（#E4E2DD 对白底仅 1.29:1，深色 1.23:1）
+        // —— 只能用于描边/分隔线，**不得**当作 Icon(color:) 或 TextStyle(color:)。
+        // 显式写死是防漂移：fromSeed 换算法会悄悄改变这些承载可读性的值。
+        onSurfaceVariant: fgMuted,
         outline: border,
         surfaceContainerHighest: isDark ? const Color(0xFF2B2E2B) : const Color(0xFFEFEEE9),
       );

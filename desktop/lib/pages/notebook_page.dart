@@ -132,7 +132,7 @@ class _EmptyState extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(Icons.star_border_rounded,
-              size: 48, color: Theme.of(context).colorScheme.outline),
+              size: 48, color: Theme.of(context).colorScheme.onSurfaceVariant),
           const SizedBox(height: 14),
           Text('生词本还是空的', style: text.titleLarge),
           const SizedBox(height: 6),

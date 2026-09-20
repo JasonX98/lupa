@@ -420,7 +420,7 @@ class _SearchPageState extends State<SearchPage> {
                                   padding: const EdgeInsets.only(top: 96),
                                   child: Column(children: [
                                     Icon(Icons.travel_explore,
-                                        size: 44, color: scheme.outline),
+                                        size: 44, color: scheme.onSurfaceVariant),
                                     const SizedBox(height: 14),
                                     Text('查一个词，看清它',
                                         style: text.titleLarge),
@@ -832,7 +832,7 @@ class _ResultCard extends StatelessWidget {
                 onPressed: onToggleStar,
                 icon: Icon(starred ? Icons.star_rounded : Icons.star_border_rounded,
                     size: 28,
-                    color: starred ? scheme.primary : scheme.outline),
+                    color: starred ? scheme.primary : scheme.onSurfaceVariant),
               ),
             ],
           ),

@@ -189,7 +189,7 @@ class _AppShellState extends State<AppShell> {
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
               child: Row(children: [
                 Icon(e.icon, size: 19,
-                    color: selected ? scheme.primary : scheme.outline),
+                    color: selected ? scheme.primary : scheme.onSurfaceVariant),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(e.label,
@@ -201,7 +201,7 @@ class _AppShellState extends State<AppShell> {
                 Text(_hintOf(e.activator),
                     style: TextStyle(
                         fontSize: 10.5,
-                        color: selected ? scheme.primary : scheme.outline)),
+                        color: selected ? scheme.primary : scheme.onSurfaceVariant)),
               ]),
             ),
           ),
@@ -211,7 +211,7 @@ class _AppShellState extends State<AppShell> {
 
     return SizedBox(
       width: 208,
-      child: Column(
+      child: _FillScrollView(child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           const SizedBox(height: 22),
@@ -258,7 +258,7 @@ class _AppShellState extends State<AppShell> {
                       const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
                   child: Row(children: [
                     Icon(Icons.settings_outlined, size: 19,
-                        color: _page == 6 ? scheme.primary : scheme.outline),
+                        color: _page == 6 ? scheme.primary : scheme.onSurfaceVariant),
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text('设置',
@@ -280,7 +280,44 @@ class _AppShellState extends State<AppShell> {
             child: Text('v$lupaVersion · 本地优先', style: text.labelSmall),
           ),
         ],
-      ),
+      )),
+    );
+  }
+}
+
+/// 侧栏的视口适配：**空间足够时保持原布局**（`Spacer` 把底部内容顶到底部、
+/// 不出现滚动条），**空间不足时改为可滚动**。
+///
+/// 它和 `CenteredScrollView` 是同一类问题的两个变体（都是「窗口太矮时不裁剪
+/// 内容」），区别只在内容够放时的落点：那里居中，这里撑满。
+///
+/// 为什么需要（openspec change fix-ui-contrast-and-reachability）：侧栏原来是固定
+/// `Column` 且无滚动，窗口高度低于约 373px 时溢出（实测 340px → 溢出 33px、
+/// 300px → 73px）；而 Windows runner 未设最小窗口尺寸，用户可以把窗口拖到那个
+/// 高度 —— 此时底部的「设置」入口被裁掉且无法触达。
+///
+/// 手法：`Spacer`（`Expanded`）在 `SingleChildScrollView` 给出的**无界高度**下会抛
+/// RenderFlex 异常，所以先由 `ConstrainedBox(minHeight:)` + `IntrinsicHeight`
+/// 把高度定成 `max(内容固有高度, 可用高度)`：够高就取可用高度（`Spacer` 撑开），
+/// 不够高就取内容固有高度（正好放下，超出部分交给滚动）。
+class _FillScrollView extends StatelessWidget {
+  final Widget child;
+
+  const _FillScrollView({required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final minHeight =
+            constraints.maxHeight.isFinite ? constraints.maxHeight : 0.0;
+        return SingleChildScrollView(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: minHeight),
+            child: IntrinsicHeight(child: child),
+          ),
+        );
+      },
     );
   }
 }
